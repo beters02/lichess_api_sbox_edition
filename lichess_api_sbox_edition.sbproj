@@ -1,7 +1,7 @@
 {
   "Title": "LIChess API Sbox Edition",
   "Type": "addon",
-  "Org": "local",
+  "Org": "brycpt",
   "Ident": "lichess_api_sbox_edition",
   "Schema": 1,
   "IncludeSourceFiles": false,

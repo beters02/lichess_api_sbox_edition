@@ -1,0 +1,5 @@
+<Project>
+	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'lichess_api_sbox_edition'">
+		<Nullable>annotations</Nullable>
+	</PropertyGroup>
+</Project>
