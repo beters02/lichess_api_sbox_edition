@@ -4,10 +4,7 @@
 if sbox-editor mcp server is not active, skip straight to ## table of contents.
 
 use sbox-editor mcp to facilitate in-engine changes
-use sbox-docs mcp to read up on documentation
-
-## table of contents
-if lean-ctx is active, go to ## lean-ctx. if it's not active, skip straight to ## non-lean-ctx.
+use sbox-documentation mcp to read up on documentation when understanding the API
 
 <!-- lean-ctx-rules-condensed -->
 
@@ -40,7 +37,3 @@ Use strategically: `ctx_impact/ctx_graph/ctx_callgraph` blast radius; `ctx_refac
 When finishing or making a revision on a plan, always give condensed instructions on how to test.
 
 <!-- /lean-ctx-rules-condensed -->
-
-## non-lean-ctx
-
-Provide minimal narration. The goal is to save tokens while providing useful knowledge.

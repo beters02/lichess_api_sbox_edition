@@ -658,38 +658,7 @@
       "NetworkOrphaned": 0,
       "NetworkTransmit": true,
       "OwnerTransfer": 1,
-      "Components": [
-        {
-          "__type": "LichessBoardSmokeTest",
-          "__guid": "8e058678-b9ee-46b4-9764-dd1d2e9ac2a0",
-          "__enabled": false,
-          "Flags": 0,
-          "AutoSeek": false,
-          "ClockMinutes": 3,
-          "Color": "random",
-          "IncrementSeconds": 0,
-          "OnComponentDestroy": null,
-          "OnComponentDisabled": null,
-          "OnComponentEnabled": null,
-          "OnComponentFixedUpdate": null,
-          "OnComponentStart": null,
-          "OnComponentUpdate": null,
-          "Rated": false,
-          "Token": null
-        },
-        {
-          "__type": "LichessSmokeTest",
-          "__guid": "cf626467-f379-4647-8690-9b1980e3d26f",
-          "__enabled": true,
-          "Flags": 0,
-          "OnComponentDestroy": null,
-          "OnComponentDisabled": null,
-          "OnComponentEnabled": null,
-          "OnComponentFixedUpdate": null,
-          "OnComponentStart": null,
-          "OnComponentUpdate": null
-        }
-      ],
+      "Components": [],
       "Children": []
     }
   ],
