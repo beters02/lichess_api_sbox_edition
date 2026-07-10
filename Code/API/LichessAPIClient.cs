@@ -1,5 +1,4 @@
-﻿using System.Net;
-using LichessNET.Entities.OAuth;
+﻿using LichessNET.Entities.OAuth;
 using LichessNET.Internal;
 
 namespace LichessNET.API;
@@ -10,6 +9,8 @@ namespace LichessNET.API;
 /// </summary>
 public partial class LichessApiClient
 {
+    private const int RateLimitCooldownSeconds = 60;
+
     private readonly LichessLog _logger;
     private readonly ApiRatelimitController _ratelimitController = new();
     private string? _token;
@@ -74,7 +75,9 @@ public partial class LichessApiClient
         bool useToken = true, Dictionary<string, string> formData = null, bool formDataAsContent = false,
         CancellationToken cancellationToken = default)
     {
-        method ??= "GET";
+        if ( method is null )
+            method = "GET";
+
         HttpContent content = null;
 
         if (formData != null)
@@ -102,8 +105,7 @@ public partial class LichessApiClient
 
             if (responseMessage.StatusCode == HttpStatusCode.TooManyRequests)
             {
-                var seconds = responseMessage.Headers.RetryAfter?.Delta?.TotalSeconds ?? 60;
-                _ratelimitController.ReportBlock(Math.Max(1, (int)Math.Ceiling(seconds)));
+                _ratelimitController.ReportBlock(RateLimitCooldownSeconds);
             }
 
             if (!responseMessage.IsSuccessStatusCode)
