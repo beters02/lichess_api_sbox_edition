@@ -112,3 +112,4 @@ public class Time
     public Cur Cur { get; set; }
     public Max Max { get; set; }
 }
+

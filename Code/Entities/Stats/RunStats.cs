@@ -7,3 +7,4 @@ public class RunStats : IGameStats
     public int Runs { get; set; }
     public int Score { get; set; }
 }
+

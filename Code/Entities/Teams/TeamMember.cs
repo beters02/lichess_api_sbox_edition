@@ -11,3 +11,4 @@ public class TeamMember
     public bool Patron { get; set; }
     public ulong joinedTeamAt { get; set; }
 }
+

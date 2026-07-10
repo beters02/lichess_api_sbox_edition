@@ -9,3 +9,4 @@ public class CrossTable
     public Dictionary<string, double> Scores { get; set; }
     public Matchup? CurrentMatchup { get; set; }
 }
+

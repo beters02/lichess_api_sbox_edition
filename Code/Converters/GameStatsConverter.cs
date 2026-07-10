@@ -17,7 +17,6 @@ public class GameStatsConverter : JsonConverter<Dictionary<Gamemode, IGameStats>
         {
             foreach (JsonProperty property in doc.RootElement.EnumerateObject())
             {
-                Console.WriteLine(property.Name);
                 if (Gamemode.TryParse(property.Name, true, out Gamemode gamemode))
                 {
                     IGameStats? stats = null;
@@ -47,3 +46,5 @@ public class GameStatsConverter : JsonConverter<Dictionary<Gamemode, IGameStats>
         throw new NotImplementedException();
     }
 }
+
+

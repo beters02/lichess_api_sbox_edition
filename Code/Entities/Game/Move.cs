@@ -12,3 +12,4 @@ public class Move
     public TimeSpan Clock { get; set; }
     public float Evaluation { get; set; }
 }
+

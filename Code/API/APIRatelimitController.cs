@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using TokenBucket;
-using Vertical.SpectreLogger;
+﻿using LichessNET.Internal;
 
 namespace LichessNET.API;
 
@@ -10,25 +8,56 @@ namespace LichessNET.API;
 /// </summary>
 public class ApiRatelimitController
 {
-    private static ILogger _logger = null!;
-
-    private readonly Dictionary<string, ITokenBucket> _buckets = new();
-
-    private readonly ITokenBucket _defaultBucket = TokenBuckets.Construct().WithCapacity(5)
-        .WithFixedIntervalRefillStrategy(5, TimeSpan.FromSeconds(15)).Build();
-
-    private int _pipedRequests;
-
-    private DateTime _rateLimitedUntil = DateTime.MinValue;
-
-    public ApiRatelimitController()
+    private sealed class Bucket
     {
-        var loggerFactory = LoggerFactory.Create(builder => builder
-            .AddSpectreConsole());
+        private readonly int _capacity;
+        private readonly int _refillAmount;
+        private readonly TimeSpan _interval;
+        private int _tokens;
+        private DateTime _lastRefill;
 
-        _logger = loggerFactory.CreateLogger("APIRateLimitController");
+        public Bucket(int capacity, int refillAmount, TimeSpan interval)
+        {
+            _capacity = Math.Max(1, capacity);
+            _refillAmount = Math.Max(1, refillAmount);
+            _interval = interval;
+            _tokens = _capacity;
+            _lastRefill = DateTime.UtcNow;
+        }
+
+        public async Task Consume()
+        {
+            while (true)
+            {
+                Refill();
+                if (_tokens > 0)
+                {
+                    _tokens--;
+                    return;
+                }
+
+                var wait = _interval - (DateTime.UtcNow - _lastRefill);
+                await Task.Delay(wait > TimeSpan.Zero ? wait : TimeSpan.FromMilliseconds(100));
+            }
+        }
+
+        private void Refill()
+        {
+            var now = DateTime.UtcNow;
+            if (now - _lastRefill < _interval)
+                return;
+
+            var intervals = Math.Max(1, (int)((now - _lastRefill).Ticks / _interval.Ticks));
+            _tokens = Math.Min(_capacity, _tokens + intervals * _refillAmount);
+            _lastRefill = now;
+        }
     }
 
+    private static readonly LichessLog Logger = new("APIRateLimitController");
+    private readonly Dictionary<string, Bucket> _buckets = new();
+    private readonly Bucket _defaultBucket = new(5, 5, TimeSpan.FromSeconds(15));
+    private int _pipedRequests;
+    private DateTime _rateLimitedUntil = DateTime.MinValue;
 
     public int PipedRequests
     {
@@ -37,54 +66,50 @@ public class ApiRatelimitController
         {
             _pipedRequests = value;
             if (PipedRequests > 5)
-                _logger.LogWarning(
-                    $"Currently there are {PipedRequests} requests in queue. Either the API is blocking requests, or the client is sending too many requests.");
+                Logger.Warning($"Currently there are {PipedRequests} requests in queue. Either the API is blocking requests, or the client is sending too many requests.");
         }
     }
 
     public void ReportBlock(int seconds = 60)
     {
-        _logger.LogWarning("API Call reported Ratelimit block for " + seconds + " seconds");
-        _rateLimitedUntil = DateTime.Now.AddSeconds(seconds);
+        Logger.Warning("API call reported ratelimit block for " + seconds + " seconds");
+        _rateLimitedUntil = DateTime.UtcNow.AddSeconds(seconds);
     }
 
-    public void RegisterBucket(string endpointUrl, ITokenBucket bucket)
+    public void RegisterBucket(string endpointUrl, int capacity, int refillAmount, TimeSpan interval)
     {
-        _buckets.Add(endpointUrl, bucket);
+        _buckets[endpointUrl] = new Bucket(capacity, refillAmount, interval);
     }
 
-    public async Task Consume()
+    public Task Consume()
     {
-        PipedRequests++;
-        if (_rateLimitedUntil > DateTime.Now)
-        {
-            _logger.LogWarning("Endpoint blocked due to ratelimit. Waiting for " +
-                               (_rateLimitedUntil - DateTime.Now).Milliseconds + " ms.");
-            await Task.Delay((_rateLimitedUntil - DateTime.Now).Milliseconds);
-        }
-
-        _defaultBucket.Consume();
-        PipedRequests--;
+        return Consume(string.Empty, true);
     }
 
-    /// <summary>
-    /// Consumes one token for ratelimiting
-    /// </summary>
-    /// <param name="endpointUrl">Endpoint requested</param>
-    /// <param name="consumeDefaultBucket">Indicator whether this request consumes from global bucket</param>
     public async Task Consume(string endpointUrl, bool consumeDefaultBucket)
     {
         PipedRequests++;
-        if (_rateLimitedUntil > DateTime.Now)
+        try
         {
-            _logger.LogWarning("Endpoint call to " + endpointUrl + " blocked due to ratelimit. Waiting for " +
-                               (_rateLimitedUntil - DateTime.Now).Milliseconds + " ms.");
-            await Task.Delay((_rateLimitedUntil - DateTime.Now).Milliseconds);
+            if (_rateLimitedUntil > DateTime.UtcNow)
+            {
+                var wait = _rateLimitedUntil - DateTime.UtcNow;
+                Logger.Warning($"Endpoint call to {endpointUrl} blocked due to ratelimit. Waiting for {wait.TotalMilliseconds:0} ms.");
+                await Task.Delay(wait);
+            }
+
+            if (consumeDefaultBucket)
+                await _defaultBucket.Consume();
+
+            if (!string.IsNullOrWhiteSpace(endpointUrl) && _buckets.TryGetValue(endpointUrl.TrimStart('/'), out var bucket))
+                await bucket.Consume();
         }
-
-        if (consumeDefaultBucket) _defaultBucket.Consume();
-        if (_buckets.TryGetValue(endpointUrl, out var bucket)) bucket.Consume();
-
-        PipedRequests--;
+        finally
+        {
+            PipedRequests--;
+        }
     }
 }
+
+
+

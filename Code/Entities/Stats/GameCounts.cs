@@ -19,3 +19,4 @@ public class GameCounts
     public int Import { get; set; }
     public int Me { get; set; }
 }
+

@@ -13,3 +13,4 @@ public class PuzzleGame
     public string PGN { get; set; }
     public bool Rated { get; set; }
 }
+

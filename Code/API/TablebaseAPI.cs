@@ -1,7 +1,6 @@
 ﻿using LichessNET.Entities.Analysis;
 using LichessNET.Entities.Enumerations;
 using LichessNET.Extensions;
-using Newtonsoft.Json;
 
 namespace LichessNET.API;
 
@@ -29,13 +28,11 @@ public partial class LichessApiClient
         if (variant == ChessVariant.Chess960) variant = ChessVariant.Standard;
 
 
-        var _httpClient = new HttpClient();
-        var url = $"https://tablebase.lichess.ovh/{variant.GetEnumMemberValue()}?fen={Uri.EscapeDataString(fen)}";
-        var response = await _httpClient.GetAsync(url);
-
-        response.EnsureSuccessStatusCode();
-
-        var jsonResponse = await response.Content.ReadAsStringAsync();
-        return JsonConvert.DeserializeObject<TablebaseLookup>(jsonResponse);
+        var url = $"https://tablebase.lichess.ovh/{variant.GetApiName()}?fen={Uri.EscapeDataString(fen)}";
+        var jsonResponse = await Sandbox.Http.RequestStringAsync(url, "GET", null, null, CancellationToken.None);
+        return LichessJson.Deserialize<TablebaseLookup>(jsonResponse);
     }
 }
+
+
+

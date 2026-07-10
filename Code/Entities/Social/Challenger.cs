@@ -10,3 +10,4 @@ public class Challenger
     public bool Online { get; set; }
     public int Lag { get; set; }
 }
+

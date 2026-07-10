@@ -4,11 +4,11 @@ public class StormDay
 {
     public string Id { get; set; }
 
-    public DateOnly Date
+    public DateTime Date
     {
         get
         {
-            return new DateOnly(
+            return new DateTime(
                 int.Parse(Id.Split('/')[0]),
                 int.Parse(Id.Split('/')[1]),
                 int.Parse(Id.Split('/')[2])

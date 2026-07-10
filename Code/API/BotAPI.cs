@@ -1,6 +1,5 @@
 ﻿using LichessNET.Entities.Enumerations;
 using LichessNET.Entities.Social;
-using Newtonsoft.Json;
 
 namespace LichessNET.API;
 
@@ -13,12 +12,12 @@ public partial class LichessApiClient
     /// <returns>A bool whether the operation was successful or not</returns>
     public async Task<bool> AcceptChallengeAsync(string challengeId)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var endpoint = $"api/challenge/{challengeId}/accept";
         var request = GetRequestScaffold(endpoint);
 
-        var response = await SendRequest(request, HttpMethod.Post);
+        var response = await SendRequest(request, "POST");
         return response.Content.ReadAsStringAsync().Result.Contains("true");
     }
 
@@ -31,12 +30,12 @@ public partial class LichessApiClient
     public async Task<bool> DeclineChallengeAsync(string challengeId,
         ChallengeDeniedReason reason = ChallengeDeniedReason.Generic)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var endpoint = $"api/challenge/{challengeId}/decline";
         var request = GetRequestScaffold(endpoint);
 
-        var response = await SendRequest(request, HttpMethod.Post);
+        var response = await SendRequest(request, "POST");
         return response.Content.ReadAsStringAsync().Result.Contains("true");
     }
 
@@ -46,7 +45,7 @@ public partial class LichessApiClient
     /// <returns>A struct with all challenges</returns>
     public async Task<ChallengeResponse> GetChallengesAsync()
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var endpoint = "api/challenge";
         var request = GetRequestScaffold(endpoint);
@@ -54,7 +53,7 @@ public partial class LichessApiClient
         var response = await SendRequest(request);
         var content = await response.Content.ReadAsStringAsync();
 
-        var challengeResponse = JsonConvert.DeserializeObject<ChallengeResponse>(content);
+        var challengeResponse = LichessJson.Deserialize<ChallengeResponse>(content);
         return challengeResponse;
     }
 
@@ -76,7 +75,7 @@ public partial class LichessApiClient
         int clockIncrement = 0, int? days = null, string color = "random", string variant = "standard",
         string fen = null, bool keepAliveStream = false, string rules = null)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var endpoint = $"api/challenge/{username}";
         var request = GetRequestScaffold(endpoint);
@@ -110,11 +109,13 @@ public partial class LichessApiClient
             parameters.Add("rules", rules);
         }
 
-        request.Content = new FormUrlEncodedContent(parameters);
-        var response = await SendRequest(request, HttpMethod.Post);
+        var response = await SendRequest(request, "POST", formData: parameters);
         var content = await response.Content.ReadAsStringAsync();
 
-        var challengeResponse = JsonConvert.DeserializeObject<Challenge>(content);
+        var challengeResponse = LichessJson.Deserialize<Challenge>(content);
         return challengeResponse;
     }
 }
+
+
+

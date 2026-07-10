@@ -88,3 +88,4 @@ public class PermissionJsonConverter : JsonConverter<List<TokenPermission>>
         throw new NotImplementedException();
     }
 }
+

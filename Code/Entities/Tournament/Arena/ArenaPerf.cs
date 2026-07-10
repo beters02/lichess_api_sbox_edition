@@ -7,3 +7,4 @@ public class ArenaPerf
     public int Position { get; set; }
     public string Icon { get; set; }
 }
+

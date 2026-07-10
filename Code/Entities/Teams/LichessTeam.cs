@@ -18,3 +18,4 @@ public class LichessTeam
     public bool Joined { get; set; }
     public bool Requested { get; set; }
 }
+

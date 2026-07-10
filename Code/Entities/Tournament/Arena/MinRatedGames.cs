@@ -4,3 +4,4 @@ public class MinRatedGames
 {
     public int Nb { get; set; }
 }
+

@@ -16,3 +16,4 @@ public class TablebaseMove
     public bool InsufficientMaterial { get; set; }
     public string Category { get; set; }
 }
+

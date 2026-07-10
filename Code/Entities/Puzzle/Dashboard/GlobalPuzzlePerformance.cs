@@ -8,3 +8,4 @@ public class GlobalPuzzlePerformance
     public int PuzzleRatingAvg { get; set; }
     public int ReplayWins { get; set; }
 }
+

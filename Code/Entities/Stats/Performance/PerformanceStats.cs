@@ -10,3 +10,4 @@ public class PerformanceStats
     public double Percentile { get; set; }
     public Stat Stat { get; set; }
 }
+

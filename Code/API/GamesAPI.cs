@@ -1,8 +1,5 @@
 ﻿using System.Text;
 using LichessNET.Entities.Game;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace LichessNET.API;
 
@@ -14,7 +11,7 @@ public partial class LichessApiClient
     /// <param name="gameId">The unique identifier of the game to retrieve.</param>
     public async Task<Game> GetGameAsync(string gameId)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var request = GetRequestScaffold("game/export/" + gameId);
 
@@ -32,7 +29,7 @@ public partial class LichessApiClient
     /// <returns>A task that represents the asynchronous operation. The task result contains a list of games.</returns>
     public async Task<List<Game>> GetGamesAsync(string username, int max = 10)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var request = GetRequestScaffold("api/games/user/" + username,
             Tuple.Create("max", max.ToString()));
@@ -50,9 +47,9 @@ public partial class LichessApiClient
                 if (gamepgn.Length < 10) continue;
                 list.Add(Game.FromPgn(gamepgn.Trim()));
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                _logger.LogWarning("Failed to parse a pgn: " + gamepgn);
+                _logger.Warning("Failed to parse a pgn: " + gamepgn);
                 throw;
             }
         }
@@ -68,9 +65,8 @@ public partial class LichessApiClient
     public async Task<List<Game>> GetGamesAsync(params string[] ids)
     {
         var request = GetRequestScaffold("api/games/export/_ids");
-        var idsJoined = string.Join(",", ids);
-        request.Content = new StringContent(idsJoined, Encoding.UTF8, "text/plain");
-        var response = await SendRequest(request, HttpMethod.Post);
+        request.Query["ids"] = string.Join(",", ids);
+        var response = await SendRequest(request, "POST");
         var content = await response.Content.ReadAsStringAsync();
 
         var list = new List<Game>();
@@ -83,9 +79,9 @@ public partial class LichessApiClient
                 if (gamepgn.Length < 10) continue;
                 list.Add(Game.FromPgn(gamepgn.Trim()));
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                _logger.LogWarning("Failed to parse a pgn: " + gamepgn);
+                _logger.Warning("Failed to parse a pgn: " + gamepgn);
                 throw;
             }
         }
@@ -99,7 +95,7 @@ public partial class LichessApiClient
     /// <returns>A list of imported chess games.</returns>
     public async Task<List<Game>> GetImportedGamesAsync()
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var request = GetRequestScaffold("api/games/export/import");
         var response = await SendRequest(request);
@@ -115,9 +111,9 @@ public partial class LichessApiClient
                 if (gamepgn.Length < 10) continue;
                 list.Add(Game.FromPgn(gamepgn.Trim()));
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                _logger.LogWarning("Failed to parse a pgn: " + gamepgn);
+                _logger.Warning("Failed to parse a pgn: " + gamepgn);
                 throw;
             }
         }
@@ -132,7 +128,7 @@ public partial class LichessApiClient
     /// <returns>A task representing the asynchronous operation that returns a list of games retrieved from the specified arena.</returns>
     public async Task<List<Game>> GetArenaGames(string ArenaID)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var request = GetRequestScaffold($"api/tournament/{ArenaID}/games");
         var response = await SendRequest(request);
@@ -148,9 +144,9 @@ public partial class LichessApiClient
                 if (gamepgn.Length < 10) continue;
                 list.Add(Game.FromPgn(gamepgn.Trim()));
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                _logger.LogWarning("Failed to parse a pgn: " + gamepgn);
+                _logger.Warning("Failed to parse a pgn: " + gamepgn);
                 throw;
             }
         }
@@ -165,7 +161,7 @@ public partial class LichessApiClient
     /// <returns>A task representing the asynchronous operation, with a list of Swiss tournament games as the result.</returns>
     public async Task<List<Game>> GetSwissGames(string SwissID)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var request = GetRequestScaffold($"api/swiss/{SwissID}/games");
         var response = await SendRequest(request);
@@ -181,9 +177,9 @@ public partial class LichessApiClient
                 if (gamepgn.Length < 10) continue;
                 list.Add(Game.FromPgn(gamepgn.Trim()));
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                _logger.LogWarning("Failed to parse a pgn: " + gamepgn);
+                _logger.Warning("Failed to parse a pgn: " + gamepgn);
                 throw;
             }
         }
@@ -198,9 +194,7 @@ public partial class LichessApiClient
     /// <returns>A GameStream object that provides updates as the game progresses.</returns>
     public async Task<GameStream> GetGameStreamAsync(string gameId)
     {
-        var request = new HttpRequestMessage();
-        request.RequestUri = new Uri("https://lichess.org/api/stream/game/" + gameId);
-        return new GameStream(request, HttpMethod.Post);
+        return new GameStream("https://lichess.org/api/stream/game/" + Uri.EscapeDataString(gameId), "POST");
     }
 
     /// <summary>
@@ -215,19 +209,15 @@ public partial class LichessApiClient
     public async Task<GameStream> GetGameStreamByUserAsync(params string[] UserIDs)
     {
         if (UserIDs.Length > 300) throw new Exception("Lichess only allows up to 300 users to be tracked at once.");
-        var request = new HttpRequestMessage();
-        request.RequestUri = new Uri("https://lichess.org/api/stream/games-by-users");
-        request.Content = new StringContent(string.Join(",", UserIDs), Encoding.UTF8, "text/plain");
-        return new GameStream(request, HttpMethod.Post);
+        var users = Uri.EscapeDataString(string.Join(",", UserIDs));
+        return new GameStream("https://lichess.org/api/stream/games-by-users?ids=" + users, "POST");
     }
 
     public async Task<GameStream> GetGameStreamByIDsAsync(params string[] GameIDs)
     {
         if (GameIDs.Length > 500) throw new Exception("Lichess only allows up to 500 games to be tracked at once.");
-        var request = new HttpRequestMessage();
-        request.RequestUri = new Uri("https://lichess.org/api/stream/streamlichessnet}");
-        request.Content = new StringContent(string.Join(",", GameIDs), Encoding.UTF8, "text/plain");
-        return new GameStream(request, HttpMethod.Post);
+        var games = Uri.EscapeDataString(string.Join(",", GameIDs));
+        return new GameStream("https://lichess.org/api/stream/games/" + games, "POST");
     }
 
     /// <summary>
@@ -237,7 +227,7 @@ public partial class LichessApiClient
     /// <returns>A list of OngoingGame objects representing the current ongoing games.</returns>
     public async Task<List<OngoingGame>> GetOngoingGamesAsync(int maxGames = 9)
     {
-        _ratelimitController.Consume("api/account", false);
+        await _ratelimitController.Consume("api/account", false);
 
         if (maxGames < 1 || maxGames > 50)
             throw new ArgumentOutOfRangeException(nameof(maxGames), "The number of games must be between 1 and 50.");
@@ -245,7 +235,13 @@ public partial class LichessApiClient
         var request = GetRequestScaffold("api/account/playing", Tuple.Create("nb", maxGames.ToString()));
         var response = await SendRequest(request);
         var content = await response.Content.ReadAsStringAsync();
-        var jobj = JsonConvert.DeserializeObject<JObject>(content);
-        return jobj["nowPlaying"].ToObject<List<OngoingGame>>();
+                var json = LichessJson.Parse(content);
+        return json.TryGetProperty("nowPlaying", out var nowPlaying)
+            ? nowPlaying.Deserialize<List<OngoingGame>>(LichessJson.Options) ?? new List<OngoingGame>()
+            : new List<OngoingGame>();
     }
 }
+
+
+
+

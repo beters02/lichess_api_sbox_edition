@@ -20,3 +20,4 @@ public static class LongExtensions
         return $"{scaledNumber:0.##} {Prefixes[exponent]}";
     }
 }
+

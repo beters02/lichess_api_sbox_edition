@@ -1,9 +1,7 @@
-﻿using System.Net.Http.Json;
-using LichessNET.Entities;
+﻿using LichessNET.Entities;
 using LichessNET.Entities.Account;
 using LichessNET.Entities.Social;
 using LichessNET.Entities.Social.Timeline;
-using Newtonsoft.Json;
 
 namespace LichessNET.API;
 
@@ -17,7 +15,7 @@ public partial class LichessApiClient
     /// </returns>
     public async Task<string> GetAccountEmail()
     {
-        _ratelimitController.Consume("api/account", false);
+        await _ratelimitController.Consume("api/account", false);
 
         var request = GetRequestScaffold("api/account/email");
 
@@ -34,7 +32,7 @@ public partial class LichessApiClient
     /// </returns>
     public async Task<LichessUser> GetOwnProfile()
     {
-        _ratelimitController.Consume("api/account", false);
+        await _ratelimitController.Consume("api/account", false);
 
         var request = GetRequestScaffold("api/account");
         var response = await SendRequest(request);
@@ -49,7 +47,7 @@ public partial class LichessApiClient
     /// </returns>
     public async Task<AccountPreferences> GetAccountPreferences()
     {
-        _ratelimitController.Consume("api/account", false);
+        await _ratelimitController.Consume("api/account", false);
 
         var request = GetRequestScaffold("api/account/preferences");
 
@@ -68,7 +66,7 @@ public partial class LichessApiClient
     /// </returns>
     public async Task<bool> GetKidModeStatus()
     {
-        _ratelimitController.Consume("api/account", false);
+        await _ratelimitController.Consume("api/account", false);
 
         var request = GetRequestScaffold("api/account/kid");
 
@@ -89,9 +87,10 @@ public partial class LichessApiClient
     public async Task<bool> SetKidModeStatus(bool enable)
     {
         var request = GetRequestScaffold("api/account/kid", Tuple.Create("v", enable.ToString()));
-        var response = await SendRequest(request, HttpMethod.Post);
+        var response = await SendRequest(request, "POST");
 
-        return JsonConvert.DeserializeObject<dynamic>(await response.Content.ReadAsStringAsync()).ok.ToObject<bool>();
+                var result = LichessJson.Deserialize<Dictionary<string, bool>>(await response.Content.ReadAsStringAsync());
+        return result != null && result.TryGetValue("ok", out var ok) && ok;
     }
 
     /// <summary>
@@ -105,10 +104,10 @@ public partial class LichessApiClient
     /// </returns>
     public async Task<bool> FollowPlayerAsync(string username)
     {
-        _ratelimitController.Consume("api/account", false);
+        await _ratelimitController.Consume("api/account", false);
 
         var request = GetRequestScaffold($"api/rel/follow/{username}");
-        var response = await SendRequest(request, HttpMethod.Post);
+        var response = await SendRequest(request, "POST");
         var content = await response.Content.ReadFromJsonAsync<Dictionary<string, bool>>();
         return content["ok"];
     }
@@ -124,10 +123,10 @@ public partial class LichessApiClient
     /// </returns>
     public async Task<bool> UnfollowPlayerAsync(string username)
     {
-        _ratelimitController.Consume("api/account", false);
+        await _ratelimitController.Consume("api/account", false);
 
         var request = GetRequestScaffold($"api/rel/unfollow/{username}");
-        var response = await SendRequest(request, HttpMethod.Post);
+        var response = await SendRequest(request, "POST");
         var content = await response.Content.ReadFromJsonAsync<Dictionary<string, bool>>();
         return content["ok"];
     }
@@ -143,10 +142,10 @@ public partial class LichessApiClient
     /// </returns>
     public async Task<bool> BlockPlayerAsync(string username)
     {
-        _ratelimitController.Consume("api/account", false);
+        await _ratelimitController.Consume("api/account", false);
 
         var request = GetRequestScaffold($"api/rel/block/{username}");
-        var response = await SendRequest(request, HttpMethod.Post);
+        var response = await SendRequest(request, "POST");
         var content = await response.Content.ReadFromJsonAsync<Dictionary<string, bool>>();
         return content["ok"];
     }
@@ -162,10 +161,10 @@ public partial class LichessApiClient
     /// </returns>
     public async Task<bool> UnblockPlayerAsync(string username)
     {
-        _ratelimitController.Consume("api/account", false);
+        await _ratelimitController.Consume("api/account", false);
 
         var request = GetRequestScaffold($"api/rel/unblock/{username}");
-        var response = await SendRequest(request, HttpMethod.Post);
+        var response = await SendRequest(request, "POST");
         var content = await response.Content.ReadFromJsonAsync<Dictionary<string, bool>>();
         return content["ok"];
     }
@@ -178,7 +177,7 @@ public partial class LichessApiClient
     /// <returns>A Timeline object</returns>
     public async Task<Timeline?> GetTimelineAsync(DateTime since, int nb = 15)
     {
-        _ratelimitController.Consume("api/timeline", false);
+        await _ratelimitController.Consume("api/timeline", false);
 
         var unixTimestamp = new DateTimeOffset(since).ToUnixTimeMilliseconds();
         var request = GetRequestScaffold($"api/timeline",
@@ -188,10 +187,37 @@ public partial class LichessApiClient
         var response = await SendRequest(request);
         var content = await response.Content.ReadAsStringAsync();
 
-        return JsonConvert.DeserializeObject<Timeline>(content, new JsonSerializerSettings
+                var root = LichessJson.Parse(content);
+        var timeline = new Timeline
         {
-            TypeNameHandling = TypeNameHandling.Auto,
-            Converters = new List<JsonConverter> { new TimelineEventDataConverter() }
-        });
+            Entries = new List<TimelineEntry>(),
+            Users = root.TryGetProperty("users", out var users)
+                ? users.Deserialize<Dictionary<string, TimelineUser>>(LichessJson.Options) ?? new Dictionary<string, TimelineUser>()
+                : new Dictionary<string, TimelineUser>()
+        };
+
+        if (root.TryGetProperty("entries", out var entries))
+        {
+            foreach (var entryElement in entries.EnumerateArray())
+            {
+                var type = entryElement.TryGetProperty("type", out var typeElement) ? typeElement.GetString() : null;
+                var date = entryElement.TryGetProperty("date", out var dateElement) ? dateElement.GetInt64() : 0;
+                var data = entryElement.TryGetProperty("data", out var dataElement)
+                    ? TimelineEventDataConverter.DeserializeData(type, dataElement, LichessJson.Options)
+                    : new UnknownEventData();
+
+                timeline.Entries.Add(new TimelineEntry
+                {
+                    Type = type,
+                    Date = date,
+                    Data = data
+                });
+            }
+        }
+
+        return timeline;
     }
 }
+
+
+

@@ -17,3 +17,4 @@ public class Challenge
     public string FinalColor { get; set; }
     public string Direction { get; set; }
 }
+

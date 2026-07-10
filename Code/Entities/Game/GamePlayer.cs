@@ -14,3 +14,4 @@ public class GamePlayer
     public Title? Title { get; set; }
     public int Rating { get; set; }
 }
+

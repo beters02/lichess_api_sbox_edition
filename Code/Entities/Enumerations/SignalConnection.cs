@@ -11,3 +11,4 @@ public enum SignalConnection
     Bad = 4,
     Unknown = 5
 }
+

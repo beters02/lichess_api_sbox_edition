@@ -10,3 +10,4 @@ public class SwissTournamentStats
     public int Games { get; set; }
     public int WhiteWins { get; set; }
 }
+

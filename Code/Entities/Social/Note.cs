@@ -7,3 +7,4 @@ public class Note
     public string Text { get; set; }
     public long Date { get; set; }
 }
+

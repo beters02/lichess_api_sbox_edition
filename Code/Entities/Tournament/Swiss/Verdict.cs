@@ -11,3 +11,4 @@ public class VerdictEntity
     public string Condition { get; set; }
     public string Verdict { get; set; }
 }
+

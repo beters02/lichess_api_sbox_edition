@@ -7,3 +7,4 @@ public class TimelineUser
     public string Title { get; set; }
     public bool? Patron { get; set; }
 }
+

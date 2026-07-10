@@ -16,3 +16,4 @@ public enum GameStatus
     UnknownFinish,
     VariantEnd,
 }
+

@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json;
-
+﻿
 namespace LichessNET.Entities.Social.Timeline;
 
 public class TimelineEntry
@@ -13,3 +12,4 @@ public class TimelineEntry
 
     public DateTime EventTime => DateTimeOffset.FromUnixTimeMilliseconds(Date).DateTime;
 }
+

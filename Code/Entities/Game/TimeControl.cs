@@ -7,3 +7,4 @@ public class TimeControl
     public int Increment { get; set; }
     public string Show { get; set; }
 }
+

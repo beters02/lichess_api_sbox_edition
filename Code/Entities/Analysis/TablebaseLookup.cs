@@ -14,3 +14,4 @@ public class TablebaseLookup
     public string Category { get; set; }
     public List<TablebaseMove> Moves { get; set; }
 }
+

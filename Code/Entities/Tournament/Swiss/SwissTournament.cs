@@ -19,3 +19,4 @@ public class SwissTournament
     public string Variant { get; set; }
     public Verdicts Verdicts { get; set; }
 }
+

@@ -9,3 +9,4 @@ public class Streamer
     public string YouTube { get; set; }
     public string Image { get; set; }
 }
+

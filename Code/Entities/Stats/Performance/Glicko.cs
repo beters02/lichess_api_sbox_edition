@@ -6,3 +6,4 @@ public class Glicko
     public double Deviation { get; set; }
     public bool Provisional { get; set; }
 }
+

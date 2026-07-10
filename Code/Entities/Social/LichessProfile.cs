@@ -56,3 +56,4 @@ public class LichessProfile
     /// </summary>
     public string? Links { get; set; }
 }
+

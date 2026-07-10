@@ -1,7 +1,6 @@
 ﻿using LichessNET.Entities.Teams;
 using LichessNET.Entities.Tournament;
 using LichessNET.Entities.Tournament.Arena;
-using Newtonsoft.Json;
 
 namespace LichessNET.API;
 
@@ -14,12 +13,12 @@ public partial class LichessApiClient
     /// <returns>The team with the specified ID</returns>
     public async Task<LichessTeam> GetTeamAsync(string teamId)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
         var request = GetRequestScaffold($"api/team/{teamId}");
         var response = await SendRequest(request);
 
         var content = await response.Content.ReadAsStringAsync();
-        var team = JsonConvert.DeserializeObject<LichessTeam>(content);
+        var team = LichessJson.Deserialize<LichessTeam>(content);
 
         return team;
     }
@@ -31,14 +30,15 @@ public partial class LichessApiClient
     /// <returns>The list of the most popular teams on the specified page.</returns>
     public async Task<List<LichessTeam>> GetPopularTeamsAsync(int page = 1)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
         var request = GetRequestScaffold("api/team/all", new Tuple<string, string>("page", page.ToString()));
         var response = await SendRequest(request);
 
         var content = await response.Content.ReadAsStringAsync();
-        var teamspage = JsonConvert.DeserializeObject<dynamic>(content);
-
-        return teamspage["currentPageResults"].ToObject<List<LichessTeam>>();
+                var json = LichessJson.Parse(content);
+        return json.TryGetProperty("currentPageResults", out var results)
+            ? results.Deserialize<List<LichessTeam>>(LichessJson.Options) ?? new List<LichessTeam>()
+            : new List<LichessTeam>();
     }
 
     /// <summary>
@@ -48,13 +48,13 @@ public partial class LichessApiClient
     /// <returns>A list of teams that the specified user is in</returns>
     public async Task<List<LichessTeam>> GetTeamOfUserAsync(string username)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var request = GetRequestScaffold($"api/team/of/{username}");
         var response = await SendRequest(request);
 
         var content = await response.Content.ReadAsStringAsync();
-        var teams = JsonConvert.DeserializeObject<List<LichessTeam>>(content);
+        var teams = LichessJson.Deserialize<List<LichessTeam>>(content);
 
         return teams;
     }
@@ -67,13 +67,13 @@ public partial class LichessApiClient
     /// <returns></returns>
     public async Task<List<TeamMember>> GetTeamMembersAsync(string teamId)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
         var request = GetRequestScaffold($"api/team/{teamId}/users");
 
         var response = await SendRequest(request);
 
         var content = await response.Content.ReadAsStringAsync();
-        var members = JsonConvert.DeserializeObject<List<TeamMember>>(content);
+        var members = LichessJson.Deserialize<List<TeamMember>>(content);
 
         return members;
     }
@@ -86,7 +86,7 @@ public partial class LichessApiClient
     /// <returns>A task representing the asynchronous operation, containing the list of Swiss tournaments.</returns>
     public async Task<List<SwissTournament>> GetTeamSwissTournamentsAsync(string teamId, int max = 100)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var endpoint = $"api/team/{teamId}/swiss?max={max}";
         var request = GetRequestScaffold(endpoint);
@@ -95,15 +95,7 @@ public partial class LichessApiClient
         var content = await response.Content.ReadAsStringAsync();
 
         var tournaments = new List<SwissTournament>();
-        using (var reader = new StringReader(content))
-        {
-            string line;
-            while ((line = reader.ReadLine()) != null)
-            {
-                var tournament = JsonConvert.DeserializeObject<SwissTournament>(line);
-                tournaments.Add(tournament);
-            }
-        }
+        foreach (var line in content.Split('\n')) { if (string.IsNullOrWhiteSpace(line)) continue; var tournament = LichessJson.Deserialize<SwissTournament>(line.Trim()); if (tournament != null) tournaments.Add(tournament); }
 
         return tournaments;
     }
@@ -116,7 +108,7 @@ public partial class LichessApiClient
     /// <returns>A task representing the asynchronous operation, containing the list of Arena tournaments.</returns>
     public async Task<List<ArenaTournament>> GetTeamArenaTournamentsAsync(string teamId, int max = 100)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var endpoint = $"api/team/{teamId}/arena?max={max}";
         var request = GetRequestScaffold(endpoint);
@@ -125,15 +117,7 @@ public partial class LichessApiClient
         var content = await response.Content.ReadAsStringAsync();
 
         var tournaments = new List<ArenaTournament>();
-        using (var reader = new StringReader(content))
-        {
-            string line;
-            while ((line = reader.ReadLine()) != null)
-            {
-                var tournament = JsonConvert.DeserializeObject<ArenaTournament>(line);
-                tournaments.Add(tournament);
-            }
-        }
+        foreach (var line in content.Split('\n')) { if (string.IsNullOrWhiteSpace(line)) continue; var tournament = LichessJson.Deserialize<ArenaTournament>(line.Trim()); if (tournament != null) tournaments.Add(tournament); }
 
         return tournaments;
     }
@@ -147,7 +131,7 @@ public partial class LichessApiClient
     /// <returns>A task representing the asynchronous operation, containing the join team response.</returns>
     public async Task<bool> JoinTeamAsync(string teamId, string message = null, string password = null)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var endpoint = $"team/{teamId}/join";
         var request = GetRequestScaffold(endpoint);
@@ -163,9 +147,7 @@ public partial class LichessApiClient
             formData.Add("password", password);
         }
 
-        request.Content = new FormUrlEncodedContent(formData);
-
-        var response = await SendRequest(request, HttpMethod.Post);
+        var response = await SendRequest(request, "POST", formData: formData);
         var content = await response.Content.ReadAsStringAsync();
 
         return content.Contains("true");
@@ -178,14 +160,18 @@ public partial class LichessApiClient
     /// <returns>A task representing the asynchronous operation, containing the leave team response.</returns>
     public async Task<bool> LeaveTeamAsync(string teamId)
     {
-        _ratelimitController.Consume();
+        await _ratelimitController.Consume();
 
         var endpoint = $"team/{teamId}/quit";
         var request = GetRequestScaffold(endpoint);
 
-        var response = await SendRequest(request, HttpMethod.Post);
+        var response = await SendRequest(request, "POST");
         var content = await response.Content.ReadAsStringAsync();
 
         return content.Contains("true");
     }
 }
+
+
+
+

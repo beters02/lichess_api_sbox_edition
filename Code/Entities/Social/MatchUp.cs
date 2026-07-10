@@ -12,3 +12,4 @@ public class Matchup
 
     public Dictionary<string, int> Scores { get; set; }
 }
+

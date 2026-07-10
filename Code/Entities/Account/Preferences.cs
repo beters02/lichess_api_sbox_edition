@@ -40,3 +40,4 @@ public class Preferences
     public int MoveEvent { get; set; }
     public int RookCastle { get; set; }
 }
+

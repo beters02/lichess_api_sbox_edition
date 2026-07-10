@@ -8,3 +8,4 @@ public class AccountPreferences
     public Preferences Prefs { get; set; }
     public string Language { get; set; }
 }
+

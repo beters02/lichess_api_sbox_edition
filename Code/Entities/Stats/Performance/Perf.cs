@@ -6,3 +6,4 @@ public class Perf
     public int Nb { get; set; }
     public int Progress { get; set; }
 }
+

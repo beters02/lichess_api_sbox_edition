@@ -9,3 +9,4 @@ public class Opponent
     public int Rating { get; set; }
     public string Username { get; set; }
 }
+

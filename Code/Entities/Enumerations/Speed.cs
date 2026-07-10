@@ -9,3 +9,4 @@ public enum Speed
     Classical,
     Correspondence,
 }
+

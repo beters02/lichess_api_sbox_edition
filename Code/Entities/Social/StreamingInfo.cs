@@ -15,3 +15,4 @@ public class StreamingInfo
     /// </summary>
     public string? YouTube { get; set; }
 }
+

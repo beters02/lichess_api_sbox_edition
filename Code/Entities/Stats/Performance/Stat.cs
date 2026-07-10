@@ -12,3 +12,4 @@ public class Stat
     public UserId UserId { get; set; }
     public PlayStreak PlayStreak { get; set; }
 }
+

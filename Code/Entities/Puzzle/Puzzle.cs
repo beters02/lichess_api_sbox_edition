@@ -8,7 +8,7 @@ public class Puzzle
     /// <summary>
     /// Puzzle ID
     /// </summary>
-    public string id { get; set; }
+    public string Id { get; set; }
 
     /// <summary>
     /// The game in which the puzzle was extracted from
@@ -40,3 +40,4 @@ public class Puzzle
     /// </summary>
     public List<string> Themes { get; set; } = new List<string>();
 }
+

@@ -22,3 +22,4 @@ public class OngoingGame
     public int PlysAtInitFen { get; set; }
     public List<Move> Moves { get; set; }
 }
+

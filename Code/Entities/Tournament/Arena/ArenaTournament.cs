@@ -21,3 +21,4 @@ public class ArenaTournament
     public MinRatedGames MinRatedGames { get; set; }
     public Schedule Schedule { get; set; }
 }
+

@@ -7,3 +7,4 @@ public class PositionEvaluation
     public int Knodes { get; set; }
     public List<PrincipalVariation> Pvs { get; set; }
 }
+

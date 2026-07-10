@@ -34,3 +34,4 @@ public class GamemodeStats : IGameStats
     /// </summary>
     public bool Prov { get; set; }
 }
+

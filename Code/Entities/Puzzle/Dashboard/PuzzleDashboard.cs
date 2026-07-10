@@ -6,3 +6,4 @@ public class PuzzleDashboard
     public GlobalPuzzlePerformance Global { get; set; }
     public Dictionary<string, PuzzleTheme> Themes { get; set; }
 }
+

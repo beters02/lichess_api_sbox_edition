@@ -7,3 +7,4 @@ public class StormHigh
     public int Month { get; set; }
     public int Week { get; set; }
 }
+
