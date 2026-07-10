@@ -1,4 +1,6 @@
-﻿using LichessNET.Internal;
+﻿#nullable enable annotations
+
+using LichessNET.Internal;
 
 namespace LichessNET.API;
 

@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Game;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Game;
 
 /// <summary>
 /// A move in a chess game, read from a PGN file.

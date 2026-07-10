@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Game;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Game;
 
 /// <summary>
 /// Represents a variant of a chess game in Lichess.

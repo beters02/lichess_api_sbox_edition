@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Database;
+﻿#nullable enable annotations
+
+namespace LichessNET.Database;
 
 internal class HttpClientDownloadWithProgress : IDisposable
 {

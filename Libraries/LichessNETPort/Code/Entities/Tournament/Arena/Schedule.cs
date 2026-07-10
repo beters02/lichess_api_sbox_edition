@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Tournament.Arena;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Tournament.Arena;
 
 public class Schedule
 {

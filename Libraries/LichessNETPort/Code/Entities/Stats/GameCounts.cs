@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Stats;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Stats;
 
 /// <summary>
 ///     This class contains the game counts of a user in the structure fetched from the lichess API

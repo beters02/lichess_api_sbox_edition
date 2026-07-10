@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Analysis;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Analysis;
 
 public class PrincipalVariation
 {

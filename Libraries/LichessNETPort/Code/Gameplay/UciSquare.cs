@@ -1,3 +1,5 @@
+#nullable enable annotations
+
 namespace LichessNET.Gameplay;
 
 public readonly struct UciSquare

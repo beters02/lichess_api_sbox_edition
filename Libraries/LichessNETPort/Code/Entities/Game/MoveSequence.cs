@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Game;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Game;
 
 /// <summary>
 /// Basically the notation part of a PGN game

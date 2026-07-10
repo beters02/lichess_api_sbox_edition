@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿#nullable enable annotations
+
+using System.Text;
 using LichessNET.Entities.Game;
 
 namespace LichessNET.API;

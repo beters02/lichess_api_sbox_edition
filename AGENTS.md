@@ -1,5 +1,8 @@
 # Agent Instructions
 
+## hierarchy
+the project you're working on in located in Libraries/LichessNETPort . There will never be any changes made to the root project, only in the provided library project. Do not waste tokens reading files from the root project.
+
 ## s&box
 if sbox-editor mcp server is not active, skip straight to ## table of contents.
 

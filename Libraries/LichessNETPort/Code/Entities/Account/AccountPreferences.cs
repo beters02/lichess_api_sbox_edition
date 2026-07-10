@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Account;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Account;
 
 /// <summary>
 ///     Represents the account preferences of a user on Lichess.

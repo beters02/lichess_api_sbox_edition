@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Extensions;
+﻿#nullable enable annotations
+
+namespace LichessNET.Extensions;
 
 public static class LongExtensions
 {

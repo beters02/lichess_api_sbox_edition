@@ -1,3 +1,5 @@
+#nullable enable annotations
+
 using LichessNET.API;
 using LichessNET.Entities.Board;
 using LichessNET.Entities.Enumerations;

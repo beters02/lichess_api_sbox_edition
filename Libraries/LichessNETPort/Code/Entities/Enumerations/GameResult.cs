@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Enumerations;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Enumerations;
 
 /// <summary>
 /// Represents the outcome of a chess game.

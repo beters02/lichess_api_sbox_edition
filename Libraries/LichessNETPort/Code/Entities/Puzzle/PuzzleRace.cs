@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Puzzle;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Puzzle;
 
 public class PuzzleRace
 {

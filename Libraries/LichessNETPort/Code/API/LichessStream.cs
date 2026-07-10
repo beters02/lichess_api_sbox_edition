@@ -1,4 +1,6 @@
-﻿namespace LichessNET.API;
+﻿#nullable enable annotations
+
+namespace LichessNET.API;
 
 /// <summary>
 /// Represents a stream sent by Lichess.

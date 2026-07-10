@@ -1,4 +1,6 @@
-﻿using LichessNET.Entities.Interfaces;
+﻿#nullable enable annotations
+
+using LichessNET.Entities.Interfaces;
 
 namespace LichessNET.Entities.Stats;
 

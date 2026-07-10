@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Social;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Social;
 
 /// <summary>
 /// Represents streaming information related to a user, containing details of Twitch and YouTube channels.

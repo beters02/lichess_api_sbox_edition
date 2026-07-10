@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Teams;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Teams;
 
 /// <summary>
 /// Represents a member of a Lichess team.

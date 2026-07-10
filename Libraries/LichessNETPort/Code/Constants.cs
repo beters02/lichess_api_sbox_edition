@@ -1,4 +1,6 @@
-﻿namespace LichessNET;
+﻿#nullable enable annotations
+
+namespace LichessNET;
 
 internal class Constants
 {

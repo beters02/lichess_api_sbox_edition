@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Puzzle.Dashboard;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Puzzle.Dashboard;
 
 public class GlobalPuzzlePerformance
 {

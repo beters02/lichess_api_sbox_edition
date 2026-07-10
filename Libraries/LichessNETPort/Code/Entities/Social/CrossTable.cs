@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Social;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Social;
 
 /// <summary>
 /// Represents a cross table that summarizes the results of games between two players.

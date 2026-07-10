@@ -1,4 +1,6 @@
-﻿using LichessNET.Entities.Account.Performance;
+﻿#nullable enable annotations
+
+using LichessNET.Entities.Account.Performance;
 using LichessNET.Entities.Enumerations;
 using LichessNET.Entities.Social;
 using LichessNET.Entities.Social.Stream;

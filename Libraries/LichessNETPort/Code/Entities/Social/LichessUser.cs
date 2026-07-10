@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿#nullable enable annotations
+
+using System.Text.Json;
 using LichessNET.Converters;
 using LichessNET.Entities.Enumerations;
 using LichessNET.Entities.Interfaces;

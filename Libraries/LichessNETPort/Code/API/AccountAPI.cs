@@ -1,4 +1,6 @@
-﻿using LichessNET.Entities;
+﻿#nullable enable annotations
+
+using LichessNET.Entities;
 using LichessNET.Entities.Account;
 using LichessNET.Entities.Social;
 using LichessNET.Entities.Social.Timeline;

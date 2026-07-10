@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Social;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Social;
 
 public class RatingDataPoint
 {

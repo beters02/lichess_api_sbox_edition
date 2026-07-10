@@ -1,4 +1,6 @@
-﻿using LichessNET.Entities.OAuth;
+﻿#nullable enable annotations
+
+using LichessNET.Entities.OAuth;
 using LichessNET.Internal;
 
 namespace LichessNET.API;

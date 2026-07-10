@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Social;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Social;
 
 /// <summary>
 /// Represents a leader of a team on Lichess, providing properties for flair, identification, name, and patron status.

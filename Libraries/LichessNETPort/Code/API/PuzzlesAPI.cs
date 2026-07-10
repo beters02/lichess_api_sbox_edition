@@ -1,4 +1,6 @@
-﻿using LichessNET.Entities.Puzzle;
+﻿#nullable enable annotations
+
+using LichessNET.Entities.Puzzle;
 using LichessNET.Entities.Puzzle.Dashboard;
 using LichessNET.Entities.Puzzle.PuzzleStorm;
 

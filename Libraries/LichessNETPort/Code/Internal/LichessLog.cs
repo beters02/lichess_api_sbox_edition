@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Internal;
+﻿#nullable enable annotations
+
+namespace LichessNET.Internal;
 
 internal sealed class LichessLog
 {

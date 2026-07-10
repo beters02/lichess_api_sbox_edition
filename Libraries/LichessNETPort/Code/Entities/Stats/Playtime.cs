@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Stats;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Stats;
 
 public class Playtime
 {

@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Game;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Game;
 
 /// <summary>
 /// Represents an ongoing game in Lichess.

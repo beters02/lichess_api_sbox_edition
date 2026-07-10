@@ -1,4 +1,6 @@
-﻿using LichessNET.Entities.Analysis;
+﻿#nullable enable annotations
+
+using LichessNET.Entities.Analysis;
 using LichessNET.Entities.Enumerations;
 using LichessNET.Extensions;
 

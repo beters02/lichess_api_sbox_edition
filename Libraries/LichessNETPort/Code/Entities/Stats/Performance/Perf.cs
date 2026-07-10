@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Account.Performance;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Account.Performance;
 
 public class Perf
 {

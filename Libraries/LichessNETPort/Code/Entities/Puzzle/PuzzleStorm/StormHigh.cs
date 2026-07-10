@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Puzzle.PuzzleStorm;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Puzzle.PuzzleStorm;
 
 public class StormHigh
 {

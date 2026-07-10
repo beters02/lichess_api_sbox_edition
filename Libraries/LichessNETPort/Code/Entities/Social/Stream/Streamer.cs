@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Social.Stream;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Social.Stream;
 
 public class Streamer
 {

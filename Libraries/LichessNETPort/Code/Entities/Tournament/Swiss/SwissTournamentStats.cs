@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Tournament;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Tournament;
 
 public class SwissTournamentStats
 {

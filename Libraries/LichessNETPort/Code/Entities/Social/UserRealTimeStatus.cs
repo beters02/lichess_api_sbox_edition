@@ -1,4 +1,6 @@
-﻿using LichessNET.Entities.Enumerations;
+﻿#nullable enable annotations
+
+using LichessNET.Entities.Enumerations;
 
 namespace LichessNET.Entities.Social;
 

@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Social;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Social;
 
 /// <summary>
 ///     This class contains all information of the public profile of a lichess user

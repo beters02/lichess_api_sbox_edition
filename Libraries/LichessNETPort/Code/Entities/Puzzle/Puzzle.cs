@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Puzzle;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Puzzle;
 
 /// <summary>
 /// Represents a chess puzzle obtained from Lichess, including its metadata and solution.

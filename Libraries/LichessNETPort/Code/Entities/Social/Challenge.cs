@@ -1,4 +1,6 @@
-﻿using LichessNET.Entities.Game;
+﻿#nullable enable annotations
+
+using LichessNET.Entities.Game;
 
 namespace LichessNET.Entities.Social;
 

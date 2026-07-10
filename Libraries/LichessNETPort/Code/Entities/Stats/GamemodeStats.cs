@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Serialization;
+﻿#nullable enable annotations
+
+using System.Text.Json.Serialization;
 using LichessNET.Entities.Interfaces;
 
 namespace LichessNET.Entities.Stats;

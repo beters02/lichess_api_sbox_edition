@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Social.Timeline;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Social.Timeline;
 
 public class TimelineUser
 {

@@ -1,3 +1,5 @@
+#nullable enable annotations
+
 using System.Globalization;
 using LichessNET.Entities.Enumerations;
 using LichessNET.Extensions;

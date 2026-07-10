@@ -1,4 +1,6 @@
-﻿using LichessNET.API;
+﻿#nullable enable annotations
+
+using LichessNET.API;
 
 namespace LichessNET.Entities.Game;
 

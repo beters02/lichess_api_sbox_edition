@@ -1,4 +1,6 @@
-﻿namespace LichessNET.Entities.Social;
+﻿#nullable enable annotations
+
+namespace LichessNET.Entities.Social;
 
 /// <summary>
 /// Represents the matchup between two players, including the total number of games played and their respective scores.

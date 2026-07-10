@@ -1,3 +1,5 @@
+#nullable enable annotations
+
 using LichessNET.Entities.Board;
 using LichessNET.Gameplay;
 

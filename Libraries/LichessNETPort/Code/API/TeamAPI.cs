@@ -1,4 +1,6 @@
-﻿using LichessNET.Entities.Teams;
+﻿#nullable enable annotations
+
+using LichessNET.Entities.Teams;
 using LichessNET.Entities.Tournament;
 using LichessNET.Entities.Tournament.Arena;
 
