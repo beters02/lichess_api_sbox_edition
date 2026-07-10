@@ -19,6 +19,9 @@ public partial class LichessApiClient
         _logger = new LichessLog("LichessAPIClient", doLogging);
         _ratelimitController.RegisterBucket("api/account", 5, 3, TimeSpan.FromSeconds(15));
         _ratelimitController.RegisterBucket("api/streamer/live", 2, 1, TimeSpan.FromSeconds(5));
+        _ratelimitController.RegisterBucket("api/stream/event", 2, 1, TimeSpan.FromSeconds(5));
+        _ratelimitController.RegisterBucket("api/board/seek", 1, 1, TimeSpan.FromSeconds(5));
+        _ratelimitController.RegisterBucket("api/board/game/stream", 2, 1, TimeSpan.FromSeconds(5));
     }
 
     public string? GetToken() => _token;
@@ -58,25 +61,97 @@ public partial class LichessApiClient
         return new LichessRequest(GetUriBuilder(endpoint, queryParameters).Uri.ToString());
     }
 
-    private async Task<LichessResponse> SendRequest(LichessRequest request, string method = null,
-        bool useToken = true, Dictionary<string, string> formData = null)
+    private Dictionary<string, string> GetRequestHeaders(LichessRequest request, bool useToken = true)
     {
-        method ??= "GET";
-        if (formData != null)
-            request.AddFormData(formData);
-
-        await _ratelimitController.Consume(new Uri(request.Uri).AbsolutePath, true);
-
         var headers = new Dictionary<string, string>(request.Headers);
         if (useToken && !string.IsNullOrWhiteSpace(_token))
             headers["Authorization"] = "Bearer " + _token;
 
-        var uri = request.BuildUri();
-        _logger.Information("Sending request to " + uri);
-        var content = await Sandbox.Http.RequestStringAsync(uri, method, null, headers, CancellationToken.None);
-        _logger.Information("Request to " + uri + " successful.");
-        _logger.Debug("Response: \n" + content);
-        return new LichessResponse(content);
+        return headers;
+    }
+
+    private async Task<LichessResponse> SendRequest(LichessRequest request, string method = null,
+        bool useToken = true, Dictionary<string, string> formData = null, bool formDataAsContent = false,
+        CancellationToken cancellationToken = default)
+    {
+        method ??= "GET";
+        HttpContent content = null;
+
+        if (formData != null)
+        {
+            if (formDataAsContent)
+                content = new FormUrlEncodedContent(formData);
+            else
+                request.AddFormData(formData);
+        }
+
+        try
+        {
+            await _ratelimitController.Consume(new Uri(request.Uri).AbsolutePath, true);
+
+            var headers = GetRequestHeaders(request, useToken);
+            var uri = request.BuildUri();
+            var safeUri = SanitizeUriForLogging(uri);
+            _logger.Information("Sending request to " + safeUri);
+
+            var responseMessage = await Sandbox.Http.RequestAsync(uri, method, content, headers, cancellationToken);
+            var responseContent = responseMessage.Content == null
+                ? string.Empty
+                : await responseMessage.Content.ReadAsStringAsync();
+            var responseHeaders = responseMessage.Headers.ToDictionary(x => x.Key, x => string.Join(",", x.Value));
+
+            if (responseMessage.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                var seconds = responseMessage.Headers.RetryAfter?.Delta?.TotalSeconds ?? 60;
+                _ratelimitController.ReportBlock(Math.Max(1, (int)Math.Ceiling(seconds)));
+            }
+
+            if (!responseMessage.IsSuccessStatusCode)
+                throw new HttpRequestException($"Lichess API returned {(int)responseMessage.StatusCode} {responseMessage.ReasonPhrase}: {responseContent}");
+
+            _logger.Information("Request to " + safeUri + " successful.");
+            _logger.Debug("Response: \n" + SanitizeResponseForLogging(uri, responseContent));
+            return new LichessResponse(responseContent, responseMessage.StatusCode, responseHeaders);
+        }
+        finally
+        {
+            content?.Dispose();
+        }
+    }
+
+    private static string SanitizeUriForLogging(string uri)
+    {
+        try
+        {
+            var builder = new UriBuilder(uri);
+            var query = builder.Query.TrimStart('?');
+            if (string.IsNullOrWhiteSpace(query))
+                return uri;
+
+            var sanitized = query.Split('&', StringSplitOptions.RemoveEmptyEntries)
+                .Select(part =>
+                {
+                    var pieces = part.Split('=', 2);
+                    var key = Uri.UnescapeDataString(pieces[0]);
+                    return key.Contains("token", StringComparison.OrdinalIgnoreCase)
+                        ? Uri.EscapeDataString(key) + "=[redacted]"
+                        : part;
+                });
+
+            builder.Query = string.Join("&", sanitized);
+            return builder.Uri.ToString();
+        }
+        catch
+        {
+            return uri;
+        }
+    }
+
+    private static string SanitizeResponseForLogging(string uri, string content)
+    {
+        return uri.Contains("/api/token", StringComparison.OrdinalIgnoreCase)
+            ? "[redacted token response]"
+            : content;
     }
 }
 

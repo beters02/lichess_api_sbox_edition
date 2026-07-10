@@ -38,10 +38,20 @@ internal sealed class LichessRequest
 internal sealed class LichessResponse
 {
     public LichessResponse(string content)
+        : this(content, HttpStatusCode.OK)
     {
+    }
+
+    public LichessResponse(string content, HttpStatusCode statusCode, Dictionary<string, string> headers = null)
+    {
+        StatusCode = statusCode;
+        Headers = headers ?? new Dictionary<string, string>();
         Content = new LichessContent(content ?? string.Empty);
     }
 
+    public HttpStatusCode StatusCode { get; }
+    public bool IsSuccessStatusCode => (int)StatusCode >= 200 && (int)StatusCode <= 299;
+    public Dictionary<string, string> Headers { get; }
     public LichessContent Content { get; }
 }
 
