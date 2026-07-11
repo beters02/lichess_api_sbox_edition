@@ -117,12 +117,14 @@ public sealed class BoardGameInfo
     public string Status { get; set; }
 
     [JsonPropertyName("variant")]
+    [JsonConverter(typeof(BoardObjectNameConverter))]
     public string Variant { get; set; }
 
     [JsonPropertyName("speed")]
     public string Speed { get; set; }
 
     [JsonPropertyName("perf")]
+    [JsonConverter(typeof(BoardObjectNameConverter))]
     public string Perf { get; set; }
 
     [JsonPropertyName("rated")]
@@ -274,12 +276,14 @@ public sealed class BoardGameFullEvent
     public bool? Rated { get; set; }
 
     [JsonPropertyName("variant")]
+    [JsonConverter(typeof(BoardObjectNameConverter))]
     public string Variant { get; set; }
 
     [JsonPropertyName("speed")]
     public string Speed { get; set; }
 
     [JsonPropertyName("perf")]
+    [JsonConverter(typeof(BoardObjectNameConverter))]
     public string Perf { get; set; }
 
     [JsonPropertyName("createdAt")]
@@ -353,5 +357,45 @@ public static class BoardEventParser
             return Array.Empty<string>();
 
         return moves.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+}
+
+
+/// <summary>
+/// Preserves legacy string properties while accepting the object form used by
+/// current Board API gameFull payloads.
+/// </summary>
+public sealed class BoardObjectNameConverter : JsonConverter<string>
+{
+    public override string? Read(ref Utf8JsonReader reader, Type typeToConvert,
+        JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+            return reader.GetString();
+
+        if (reader.TokenType == JsonTokenType.Null)
+            return null;
+
+        using var document = JsonDocument.ParseValue(ref reader);
+        var value = document.RootElement;
+        if (value.ValueKind != JsonValueKind.Object)
+            return value.ToString();
+
+        foreach (var propertyName in new[] { "key", "name", "short" })
+        {
+            if (value.TryGetProperty(propertyName, out var property) &&
+                property.ValueKind == JsonValueKind.String)
+            {
+                return property.GetString();
+            }
+        }
+
+        return value.GetRawText();
+    }
+
+    public override void Write(Utf8JsonWriter writer, string value,
+        JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value);
     }
 }

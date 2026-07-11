@@ -9,7 +9,7 @@ namespace LichessNET.API;
 ///     This class represents a client for the lichess API.
 ///     It handles all ratelimits and requests.
 /// </summary>
-public partial class LichessApiClient
+public partial class LichessApiClient : ILichessBoardClient
 {
     private const int RateLimitCooldownSeconds = 60;
 
@@ -75,15 +75,18 @@ public partial class LichessApiClient
 
     private async Task<LichessResponse> SendRequest(LichessRequest request, string method = null,
         bool useToken = true, Dictionary<string, string> formData = null, bool formDataAsContent = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, HttpContent requestContent = null)
     {
         if ( method is null )
             method = "GET";
 
-        HttpContent content = null;
+        HttpContent content = requestContent;
 
         if (formData != null)
         {
+            if (content != null)
+                throw new ArgumentException("Only one request content source may be supplied.", nameof(formData));
+
             if (formDataAsContent)
                 content = new FormUrlEncodedContent(formData);
             else
@@ -92,17 +95,32 @@ public partial class LichessApiClient
 
         try
         {
-            await _ratelimitController.Consume(new Uri(request.Uri).AbsolutePath, true);
+            await _ratelimitController.Consume(new Uri(request.Uri).AbsolutePath, true, cancellationToken);
 
             var headers = GetRequestHeaders(request, useToken);
             var uri = request.BuildUri();
             var safeUri = SanitizeUriForLogging(uri);
             _logger.Information("Sending request to " + safeUri);
 
-            var responseMessage = await Sandbox.Http.RequestAsync(uri, method, content, headers, cancellationToken);
-            var responseContent = responseMessage.Content == null
-                ? string.Empty
-                : await responseMessage.Content.ReadAsStringAsync();
+            HttpResponseMessage responseMessage;
+            string responseContent;
+            try
+            {
+                responseMessage = await Sandbox.Http.RequestAsync(uri, method, content, headers,
+                    cancellationToken);
+                responseContent = responseMessage.Content == null
+                    ? string.Empty
+                    : await responseMessage.Content.ReadAsStringAsync(cancellationToken);
+            }
+            catch (HttpRequestException exception)
+            {
+                throw new LichessApiException(exception.StatusCode);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                throw new LichessApiException();
+            }
+
             var responseHeaders = responseMessage.Headers.ToDictionary(x => x.Key, x => string.Join(",", x.Value));
 
             if (responseMessage.StatusCode == HttpStatusCode.TooManyRequests)
@@ -111,7 +129,7 @@ public partial class LichessApiClient
             }
 
             if (!responseMessage.IsSuccessStatusCode)
-                throw new HttpRequestException($"Lichess API returned {(int)responseMessage.StatusCode} {responseMessage.ReasonPhrase}: {responseContent}");
+                throw new LichessApiException(responseMessage.StatusCode);
 
             _logger.Information("Request to " + safeUri + " successful.");
             _logger.Debug("Response: \n" + SanitizeResponseForLogging(uri, responseContent));
@@ -147,7 +165,7 @@ public partial class LichessApiClient
         }
         catch
         {
-            return uri;
+            return "[unavailable]";
         }
     }
 

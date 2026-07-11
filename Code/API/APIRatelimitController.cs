@@ -27,10 +27,11 @@ public class ApiRatelimitController
             _lastRefill = DateTime.UtcNow;
         }
 
-        public async Task Consume()
+        public async Task Consume(CancellationToken cancellationToken)
         {
             while (true)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 Refill();
                 if (_tokens > 0)
                 {
@@ -39,7 +40,8 @@ public class ApiRatelimitController
                 }
 
                 var wait = _interval - (DateTime.UtcNow - _lastRefill);
-                await Task.Delay(wait > TimeSpan.Zero ? wait : TimeSpan.FromMilliseconds(100));
+                await Task.Delay(wait > TimeSpan.Zero ? wait : TimeSpan.FromMilliseconds(100),
+                    cancellationToken);
             }
         }
 
@@ -85,11 +87,23 @@ public class ApiRatelimitController
 
     public Task Consume()
     {
-        return Consume(string.Empty, true);
+        return Consume(CancellationToken.None);
     }
 
-    public async Task Consume(string endpointUrl, bool consumeDefaultBucket)
+    public Task Consume(CancellationToken cancellationToken)
     {
+        return Consume(string.Empty, true, cancellationToken);
+    }
+
+    public Task Consume(string endpointUrl, bool consumeDefaultBucket)
+    {
+        return Consume(endpointUrl, consumeDefaultBucket, CancellationToken.None);
+    }
+
+    public async Task Consume(string endpointUrl, bool consumeDefaultBucket,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         PipedRequests++;
         try
         {
@@ -97,14 +111,15 @@ public class ApiRatelimitController
             {
                 var wait = _rateLimitedUntil - DateTime.UtcNow;
                 Logger.Warning($"Endpoint call to {endpointUrl} blocked due to ratelimit. Waiting for {wait.TotalMilliseconds:0} ms.");
-                await Task.Delay(wait);
+                await Task.Delay(wait, cancellationToken);
             }
 
             if (consumeDefaultBucket)
-                await _defaultBucket.Consume();
+                await _defaultBucket.Consume(cancellationToken);
 
-            if (!string.IsNullOrWhiteSpace(endpointUrl) && _buckets.TryGetValue(endpointUrl.TrimStart('/'), out var bucket))
-                await bucket.Consume();
+            if (!string.IsNullOrWhiteSpace(endpointUrl) &&
+                _buckets.TryGetValue(endpointUrl.TrimStart('/'), out var bucket))
+                await bucket.Consume(cancellationToken);
         }
         finally
         {

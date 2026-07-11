@@ -3,8 +3,19 @@
 using LichessNET.API;
 using LichessNET.Entities.Board;
 using LichessNET.Entities.Enumerations;
+using LichessNET.Entities.OAuth;
 
 namespace LichessNET.Gameplay;
+
+public enum LichessQueueState
+{
+    Idle,
+    ValidatingToken,
+    Seeking,
+    GameFound,
+    Stopping,
+    Faulted
+}
 
 public sealed class LichessGameFoundEventArgs : EventArgs
 {
@@ -22,22 +33,60 @@ public sealed class LichessGameFoundEventArgs : EventArgs
 
 public sealed class LichessQueue : IAsyncDisposable
 {
-    private readonly LichessApiClient _api;
-    private CancellationTokenSource _cancellation;
-    private LichessNdjsonStream _accountStream;
+    private readonly ILichessBoardClient _client;
+    private CancellationTokenSource? _cancellation;
+    private ILichessBoardEventStream? _accountStream;
     private Task _seekTask = Task.CompletedTask;
+    private bool _accountStreamErrorObserved;
+    private LichessQueueState _state;
 
     public LichessQueue(LichessApiClient api)
+        : this((ILichessBoardClient)api)
     {
-        _api = api ?? throw new ArgumentNullException(nameof(api));
     }
 
-    public LichessApiClient Api => _api;
+    public LichessQueue(ILichessBoardClient client)
+    {
+        _client = client ?? throw new ArgumentNullException(nameof(client));
+    }
 
-    public event Action<LichessQueue, LichessGameFoundEventArgs> OnGameFound;
-    public event Action<LichessQueue, Exception> OnError;
+    /// <summary>
+    /// The concrete client supplied to the legacy constructor.
+    /// </summary>
+    public LichessApiClient Api => _client as LichessApiClient
+        ?? throw new InvalidOperationException("This queue uses a custom ILichessBoardClient.");
+
+    public ILichessBoardClient BoardClient => _client;
+    public ILichessBoardClient Client => _client;
+    public LichessQueueState State => _state;
+    public bool IsSeeking => _state == LichessQueueState.Seeking;
+
+    public event Action<LichessQueue, LichessGameFoundEventArgs>? OnGameFound;
+    public event Action<LichessQueue, Exception>? OnError;
+    public event Action<LichessQueue, LichessQueueState>? OnStateChanged;
 
     public bool StopWhenGameFound { get; set; } = true;
+
+    /// <summary>
+    /// Validates the current in-memory token and returns its public metadata.
+    /// </summary>
+    public async Task<TokenInfo> ValidatePlayTokenAsync(CancellationToken cancellationToken = default)
+    {
+        var token = _client.GetToken();
+        if (string.IsNullOrWhiteSpace(token))
+            throw new UnauthorizedAccessException("A Lichess OAuth token with board:play is required.");
+
+        var result = await _client.TestTokensAsync(new List<string> { token }, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!result.TryGetValue(token, out var info) || info == null ||
+            info.Permissions == null || !info.Permissions.Contains(TokenPermission.PlayGames))
+        {
+            throw new UnauthorizedAccessException("The Lichess OAuth token must include board:play.");
+        }
+
+        return info;
+    }
 
     public async Task StartSeekAsync(BoardSeekOptions options, CancellationToken cancellationToken = default)
     {
@@ -45,37 +94,53 @@ public sealed class LichessQueue : IAsyncDisposable
             throw new ArgumentNullException(nameof(options));
 
         options.ToFormData();
-        await ValidatePlayTokenAsync();
-
         await StopAsync();
-        _cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _accountStream = await _api.StreamBoardAccountEventsAsync(_cancellation.Token);
-        _accountStream.LineReceived += HandleAccountLine;
-        _accountStream.ErrorReceived += HandleStreamError;
+        SetState(LichessQueueState.ValidatingToken);
 
-        _seekTask = RunSeekAsync(options, _cancellation.Token);
+        try
+        {
+            await ValidatePlayTokenAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            _cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _accountStreamErrorObserved = false;
+            _accountStream = await _client.CreateBoardAccountEventStreamAsync(_cancellation.Token);
+            _accountStream.LineReceived += HandleAccountLine;
+            _accountStream.ErrorReceived += HandleStreamError;
+            _accountStream.Completed += HandleStreamCompleted;
+
+            // A deterministic fake may deliver the first event synchronously.
+            SetState(LichessQueueState.Seeking);
+            _accountStream.Start();
+            _seekTask = RunSeekAsync(options, _cancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            await ReleaseResourcesAsync();
+            SetState(LichessQueueState.Idle);
+            throw new OperationCanceledException(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await ReleaseResourcesAsync();
+            SetState(LichessQueueState.Faulted);
+#pragma warning disable CA2200 // ExceptionDispatchInfo is not whitelisted by s&box.
+            throw ex;
+#pragma warning restore CA2200
+        }
     }
 
     public async Task StopAsync()
     {
-        if (_cancellation != null && !_cancellation.IsCancellationRequested)
-            _cancellation.Cancel();
-
-        if (_accountStream != null)
-            await _accountStream.DisposeAsync();
-
-        try
+        if (_accountStream == null && _cancellation == null && _seekTask.IsCompleted)
         {
-            await _seekTask;
-        }
-        catch (OperationCanceledException)
-        {
+            SetState(LichessQueueState.Idle);
+            return;
         }
 
-        _seekTask = Task.CompletedTask;
-        _accountStream = null;
-        _cancellation?.Dispose();
-        _cancellation = null;
+        SetState(LichessQueueState.Stopping);
+        await ReleaseResourcesAsync();
+        SetState(LichessQueueState.Idle);
     }
 
     public async ValueTask DisposeAsync()
@@ -87,7 +152,7 @@ public sealed class LichessQueue : IAsyncDisposable
     {
         try
         {
-            await _api.CreateBoardSeekAsync(options, cancellationToken);
+            await _client.CreateBoardSeekAsync(options, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -95,22 +160,47 @@ public sealed class LichessQueue : IAsyncDisposable
         catch (Exception ex)
         {
             OnError?.Invoke(this, ex);
+            SetState(LichessQueueState.Faulted);
+            if (_cancellation != null && !_cancellation.IsCancellationRequested)
+                _cancellation.Cancel();
         }
     }
 
-    private async Task ValidatePlayTokenAsync()
+    private async Task ReleaseResourcesAsync()
     {
-        var token = _api.GetToken();
-        if (string.IsNullOrWhiteSpace(token))
-            throw new UnauthorizedAccessException("A Lichess OAuth token with board:play is required.");
+        var cancellation = _cancellation;
+        var stream = _accountStream;
+        var seekTask = _seekTask;
 
-        var result = await _api.TestTokensAsync(new List<string> { token });
-        if (!result.TryGetValue(token, out var info) || info == null || !info.IsAllowed(TokenPermission.PlayGames))
-            throw new UnauthorizedAccessException("The Lichess OAuth token must include board:play.");
+        _cancellation = null;
+        _accountStream = null;
+        _seekTask = Task.CompletedTask;
+
+        if (cancellation != null && !cancellation.IsCancellationRequested)
+            cancellation.Cancel();
+
+        if (stream != null)
+        {
+            Unsubscribe(stream);
+            await stream.DisposeAsync();
+        }
+
+        try
+        {
+            await seekTask;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        cancellation?.Dispose();
     }
 
-    private void HandleAccountLine(LichessNdjsonStream stream, JsonElement data)
+    private void HandleAccountLine(ILichessBoardEventStream stream, JsonElement data)
     {
+        if (!ReferenceEquals(stream, _accountStream))
+            return;
+
         try
         {
             if (!BoardEventParser.GetEventType(data).Equals("gameStart", StringComparison.OrdinalIgnoreCase))
@@ -122,6 +212,7 @@ public sealed class LichessQueue : IAsyncDisposable
             if (string.IsNullOrWhiteSpace(gameId))
                 return;
 
+            SetState(LichessQueueState.GameFound);
             OnGameFound?.Invoke(this, new LichessGameFoundEventArgs(gameId, game?.Color, game));
 
             if (StopWhenGameFound && _cancellation != null && !_cancellation.IsCancellationRequested)
@@ -130,11 +221,80 @@ public sealed class LichessQueue : IAsyncDisposable
         catch (Exception ex)
         {
             OnError?.Invoke(this, ex);
+            SetState(LichessQueueState.Faulted);
         }
     }
 
-    private void HandleStreamError(LichessNdjsonStream stream, Exception exception)
+    private void HandleStreamError(ILichessBoardEventStream stream, Exception exception)
     {
+        if (!ReferenceEquals(stream, _accountStream))
+            return;
+
+        _accountStreamErrorObserved = true;
         OnError?.Invoke(this, exception);
+        SetState(LichessQueueState.Faulted);
+
+        if (_cancellation != null && !_cancellation.IsCancellationRequested)
+            _cancellation.Cancel();
+    }
+
+    private void HandleStreamCompleted(ILichessBoardEventStream stream)
+    {
+        if (!ReferenceEquals(stream, _accountStream) ||
+            _state == LichessQueueState.Stopping || _cancellation == null)
+        {
+            return;
+        }
+
+        if (_state == LichessQueueState.GameFound)
+        {
+            _ = FinishCompletedStreamAsync(LichessQueueState.GameFound);
+            return;
+        }
+
+        if (_cancellation.IsCancellationRequested)
+        {
+            var finalState = _state == LichessQueueState.Faulted
+                ? LichessQueueState.Faulted
+                : LichessQueueState.Idle;
+            _ = FinishCompletedStreamAsync(finalState);
+            return;
+        }
+
+        if (!_accountStreamErrorObserved)
+            OnError?.Invoke(this, new IOException("The Lichess account event stream ended unexpectedly."));
+
+        _cancellation.Cancel();
+        _ = FinishCompletedStreamAsync(LichessQueueState.Faulted);
+    }
+
+    private async Task FinishCompletedStreamAsync(LichessQueueState finalState)
+    {
+        try
+        {
+            await ReleaseResourcesAsync();
+            SetState(finalState);
+        }
+        catch (Exception ex)
+        {
+            OnError?.Invoke(this, ex);
+            SetState(LichessQueueState.Faulted);
+        }
+    }
+
+    private void Unsubscribe(ILichessBoardEventStream stream)
+    {
+        stream.LineReceived -= HandleAccountLine;
+        stream.ErrorReceived -= HandleStreamError;
+        stream.Completed -= HandleStreamCompleted;
+    }
+
+    private void SetState(LichessQueueState state)
+    {
+        if (_state == state)
+            return;
+
+        _state = state;
+        OnStateChanged?.Invoke(this, state);
     }
 }

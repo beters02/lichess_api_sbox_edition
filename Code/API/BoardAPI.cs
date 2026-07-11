@@ -17,27 +17,59 @@ public partial class LichessApiClient
             cancellationToken: cancellationToken);
     }
 
-    public async Task<LichessNdjsonStream> StreamBoardAccountEventsAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Creates an account event stream without starting it, allowing subscribers to attach first.
+    /// </summary>
+    public async Task<LichessNdjsonStream> CreateBoardAccountEventStreamAsync(
+        CancellationToken cancellationToken = default)
     {
         var request = GetRequestScaffold("api/stream/event");
-        await _ratelimitController.Consume("api/stream/event", true);
+        await _ratelimitController.Consume("api/stream/event", true, cancellationToken);
 
-        var stream = new LichessNdjsonStream(request.BuildUri(), "GET", GetRequestHeaders(request), cancellationToken);
+        return new LichessNdjsonStream(request.BuildUri(), "GET", GetRequestHeaders(request), cancellationToken);
+    }
+
+    public async Task<LichessNdjsonStream> StreamBoardAccountEventsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var stream = await CreateBoardAccountEventStreamAsync(cancellationToken);
         stream.Start();
         return stream;
     }
 
-    public async Task<LichessNdjsonStream> StreamBoardGameAsync(string gameId, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Creates a game event stream without starting it, allowing subscribers to attach first.
+    /// </summary>
+    public async Task<LichessNdjsonStream> CreateBoardGameStreamAsync(string gameId,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(gameId))
             throw new ArgumentException("Game id is required.", nameof(gameId));
 
         var request = GetRequestScaffold("api/board/game/stream/" + Uri.EscapeDataString(gameId));
-        await _ratelimitController.Consume("api/board/game/stream", true);
+        await _ratelimitController.Consume("api/board/game/stream", true, cancellationToken);
 
-        var stream = new LichessNdjsonStream(request.BuildUri(), "GET", GetRequestHeaders(request), cancellationToken);
+        return new LichessNdjsonStream(request.BuildUri(), "GET", GetRequestHeaders(request), cancellationToken);
+    }
+
+    public async Task<LichessNdjsonStream> StreamBoardGameAsync(string gameId,
+        CancellationToken cancellationToken = default)
+    {
+        var stream = await CreateBoardGameStreamAsync(gameId, cancellationToken);
         stream.Start();
         return stream;
+    }
+
+    async Task<ILichessBoardEventStream> ILichessBoardClient.CreateBoardAccountEventStreamAsync(
+        CancellationToken cancellationToken)
+    {
+        return await CreateBoardAccountEventStreamAsync(cancellationToken);
+    }
+
+    async Task<ILichessBoardEventStream> ILichessBoardClient.CreateBoardGameStreamAsync(string gameId,
+        CancellationToken cancellationToken)
+    {
+        return await CreateBoardGameStreamAsync(gameId, cancellationToken);
     }
 
     public async Task<bool> MakeBoardMoveAsync(string gameId, string uci, bool offerDraw = false,

@@ -16,10 +16,15 @@ public class GameStream
     private readonly LichessStream _stream;
 
     public GameStream(string requestUri, string method = "GET")
+        : this(requestUri, method, CancellationToken.None)
+    {
+    }
+
+    public GameStream(string requestUri, string method, CancellationToken cancellationToken)
     {
         _stream = new LichessStream(requestUri, method);
         _stream.GameUpdateReceived += ProcessData;
-        _ = _stream.StreamGameAsync();
+        _ = _stream.StreamGameAsync(cancellationToken);
     }
 
     public event MoveUpdateHandler? OnMoveMade;

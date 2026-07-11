@@ -9,3 +9,12 @@ public interface IChessBoardAdapter
     string ExportState();
     void ImportState(string state);
 }
+
+/// <summary>
+/// Optional adapter capability for games whose gameFull event supplies a
+/// non-starting FEN.
+/// </summary>
+public interface IChessInitialPositionAdapter
+{
+    bool TrySetInitialPosition(string fen);
+}

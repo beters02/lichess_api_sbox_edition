@@ -25,9 +25,12 @@ var lichess = new LichessApiClient();
 await lichess.SetToken(oauthToken);
 ```
 
-Do not log, commit, or replicate the token to clients that should not receive
-it. `LichessQueue.StartSeekAsync` verifies that the configured token has the
-required play permission before opening a seek.
+Treat the token as a process-session secret. Keep it only on a local,
+non-networked owner; never write it to scenes, settings, files, logs, exception
+messages, RPC arguments, or replicated properties. Call `SetToken(null)` on
+explicit disconnect or application shutdown. Switching features does not require
+persisting the token. `LichessQueue.StartSeekAsync` verifies that the configured
+token has the required play permission before opening a seek.
 
 ## Custom Board API
 
@@ -37,6 +40,19 @@ The board integration has two levels:
 - `LichessQueue` and `LichessGameSession` manage matchmaking, NDJSON streams,
   move synchronization, clocks, chat, and rollback through an
   `IChessBoardAdapter`.
+
+### Stream and owner lifecycle
+
+Give each queue or game session one clear owner and keep it alive for the full
+operation. Cancel that owner's token and dispose the queue/session when changing
+mode, leaving its scene, or shutting down. Disposal is the terminal operation and
+releases linked requests and streams.
+
+`CreateBoardAccountEventStreamAsync` and `CreateBoardGameStreamAsync` return
+unstarted streams so handlers can be attached before `Start()`. The legacy
+`StreamBoardAccountEventsAsync` and `StreamBoardGameAsync` methods remain
+available and return already-started streams. Queue and session helpers use the
+unstarted factories internally to avoid losing the first event.
 
 ### Seek and start a game
 
@@ -134,6 +150,19 @@ protected override async void OnDestroy()
 }
 ```
 
+### Reconnection and event threading
+
+`LichessGameSessionOptions` enables automatic reconnect by default. Its delays
+are 1, 2, 5, 10, and 15 seconds; the final delay repeats. Connection-state events
+let a UI show connected, reconnecting, and finished states. `ReconnectAsync`
+also supports an explicit retry while retaining confirmed history and a pending
+local move. Authentication failures, terminal game state, and explicit disposal
+stop retries.
+
+Stream and session events can arrive on a background continuation. Event handlers
+must not directly mutate s&box components, scenes, or Razor state. Enqueue their
+data and apply it from the owning component's main-thread update.
+
 ### Implement a custom board adapter
 
 The adapter is the boundary between Lichess UCI moves and your board, rules
@@ -169,6 +198,12 @@ public sealed class MyChessBoardAdapter : IChessBoardAdapter
     }
 }
 ```
+
+For a game whose initial `gameFull` event contains a non-starting FEN, also
+implement `IChessInitialPositionAdapter.TrySetInitialPosition`. The session calls
+it before replaying authoritative UCI history. Adapters that support only the
+normal starting position can omit this optional interface; they must not silently
+apply history to the wrong initial board.
 
 `RecordingChessBoardAdapter` is available for smoke tests. It validates UCI
 syntax and records moves, but it is not a chess rules engine and does not check
@@ -251,13 +286,60 @@ bool sent = await _lichess.SendBoardChatAsync(
 The returned `LichessNdjsonStream` is already started. Subscribe immediately,
 handle `ErrorReceived` where appropriate, and dispose the stream to cancel it.
 
+## Analysis, puzzles, ongoing games, and export
+
+Cancellation-token overloads are available for token testing, puzzles, cloud
+analysis, ongoing-game lookup, and single-game export. Legacy overloads remain
+and use `CancellationToken.None`. Pass the owning feature's token so cancellation
+interrupts both rate-limit waits and HTTP work.
+
+```csharp
+using var cancellation = new CancellationTokenSource();
+
+Puzzle puzzle = await lichess.GetDailyPuzzle(cancellation.Token);
+PositionEvaluation evaluation = await lichess.GetCloudEvaluationAsync(
+    fen,
+    multiPv: 3,
+    variant: ChessVariant.Standard,
+    cancellationToken: cancellation.Token);
+List<OngoingGame> games = await lichess.GetOngoingGamesAsync(
+    9,
+    cancellation.Token);
+
+var exportOptions = new GameExportOptions
+{
+    Clocks = true,
+    Evals = true,
+    Literate = false
+};
+
+string rawPgn = await lichess.GetGamePgnAsync(
+    gameId,
+    exportOptions,
+    cancellation.Token);
+Game parsed = Game.FromPgn(rawPgn);
+```
+
+Cloud analysis rejects empty FEN and a `multiPv` outside 1 through 5 before
+sending a request. Each principal variation exposes legacy `Cp`, nullable
+`Mate`, a kind-preserving `Score`, and whitespace-parsed `UciMoves`. There is
+no batch cloud endpoint: callers should evaluate positions sequentially with
+cancellation and their own FEN cache.
+
+`GetGamePgnAsync` returns the response losslessly. `Game.FromPgn` copies it to
+`RawPgn` and parses only mainline SAN; it skips comments, NAGs, and recursive
+variations while retaining clock/evaluation comment metadata. SAN-to-UCI
+conversion belongs in the consuming chess rules layer.
+
 ## Board API reference
 
 | Member | Purpose |
 | --- | --- |
 | `CreateBoardSeekAsync(options, ct)` | Create a realtime or correspondence seek. |
-| `StreamBoardAccountEventsAsync(ct)` | Stream account `gameStart` and `gameFinish` events. |
-| `StreamBoardGameAsync(gameId, ct)` | Stream full state, updates, and chat for a game. |
+| `CreateBoardAccountEventStreamAsync(ct)` | Create an unstarted account event stream. |
+| `CreateBoardGameStreamAsync(gameId, ct)` | Create an unstarted game event stream. |
+| `StreamBoardAccountEventsAsync(ct)` | Return a started account event stream. |
+| `StreamBoardGameAsync(gameId, ct)` | Return a started game event stream. |
 | `MakeBoardMoveAsync(gameId, uci, offerDraw, ct)` | Submit a UCI move. |
 | `AbortBoardGameAsync(gameId, ct)` | Abort an eligible game. |
 | `ResignBoardGameAsync(gameId, ct)` | Resign a game. |

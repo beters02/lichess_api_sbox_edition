@@ -17,10 +17,17 @@ public partial class LichessApiClient
     /// </param>
     /// <returns>A TablebaseLookup object</returns>
     /// <exception cref="ArgumentException">Thrown when an invalid variant was requested</exception>
-    public async Task<TablebaseLookup> GetTablebaseLookupAsync(string fen, ChessVariant variant = ChessVariant.Standard)
+    public Task<TablebaseLookup> GetTablebaseLookupAsync(string fen,
+        ChessVariant variant = ChessVariant.Standard)
     {
-        if (variant != ChessVariant.Standard || variant != ChessVariant.Chess960 || variant != ChessVariant.Atomic ||
-            variant != ChessVariant.Antichess)
+        return GetTablebaseLookupAsync(fen, variant, CancellationToken.None);
+    }
+
+    public async Task<TablebaseLookup> GetTablebaseLookupAsync(string fen, ChessVariant variant,
+        CancellationToken cancellationToken)
+    {
+        if (variant != ChessVariant.Standard && variant != ChessVariant.Chess960 &&
+            variant != ChessVariant.Atomic && variant != ChessVariant.Antichess)
         {
             throw new ArgumentException(
                 "Tablebase lookups are only supported for standard, Chess960, Atomic and Antichess");
@@ -31,7 +38,8 @@ public partial class LichessApiClient
 
 
         var url = $"https://tablebase.lichess.ovh/{variant.GetApiName()}?fen={Uri.EscapeDataString(fen)}";
-        var jsonResponse = await Sandbox.Http.RequestStringAsync(url, "GET", null, null, CancellationToken.None);
+        var jsonResponse = await Sandbox.Http.RequestStringAsync(url, "GET", null, null,
+            cancellationToken);
         return LichessJson.Deserialize<TablebaseLookup>(jsonResponse);
     }
 }

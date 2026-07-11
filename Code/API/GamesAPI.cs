@@ -11,16 +11,84 @@ public partial class LichessApiClient
     /// Retrieves a chess game using its unique identifier from the Lichess API.
     /// </summary>
     /// <param name="gameId">The unique identifier of the game to retrieve.</param>
-    public async Task<Game> GetGameAsync(string gameId)
+    public Task<Game> GetGameAsync(string gameId)
     {
-        await _ratelimitController.Consume();
+        return GetGameAsync(gameId, new GameExportOptions(), CancellationToken.None);
+    }
 
-        var request = GetRequestScaffold("game/export/" + gameId);
+    /// <summary>
+    /// Retrieves and parses one game while observing cancellation.
+    /// </summary>
+    public Task<Game> GetGameAsync(string gameId, CancellationToken cancellationToken)
+    {
+        return GetGameAsync(gameId, new GameExportOptions(), cancellationToken);
+    }
 
-        var response = await SendRequest(request);
+    /// <summary>
+    /// Retrieves and parses one game using the supplied export options.
+    /// </summary>
+    public Task<Game> GetGameAsync(string gameId, GameExportOptions options)
+    {
+        return GetGameAsync(gameId, options, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Retrieves and parses one game using the supplied export options.
+    /// </summary>
+    public async Task<Game> GetGameAsync(string gameId, GameExportOptions options,
+        CancellationToken cancellationToken)
+    {
+        var pgn = await GetGamePgnAsync(gameId, options, cancellationToken);
+        return Game.FromPgn(pgn);
+    }
+
+    /// <summary>
+    /// Retrieves the exact PGN returned by Lichess without parsing or trimming it.
+    /// </summary>
+    public Task<string> GetGamePgnAsync(string gameId)
+    {
+        return GetGamePgnAsync(gameId, new GameExportOptions(), CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Retrieves the exact PGN returned by Lichess while observing cancellation.
+    /// </summary>
+    public Task<string> GetGamePgnAsync(string gameId, CancellationToken cancellationToken)
+    {
+        return GetGamePgnAsync(gameId, new GameExportOptions(), cancellationToken);
+    }
+
+    /// <summary>
+    /// Retrieves the exact PGN returned by Lichess using the supplied options.
+    /// </summary>
+    public Task<string> GetGamePgnAsync(string gameId, GameExportOptions options)
+    {
+        return GetGamePgnAsync(gameId, options, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Retrieves the exact PGN returned by Lichess using the supplied options.
+    /// </summary>
+    public async Task<string> GetGamePgnAsync(string gameId, GameExportOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(gameId))
+            throw new ArgumentException("Game ID cannot be empty.", nameof(gameId));
+
+        if (options == null)
+            throw new ArgumentNullException(nameof(options));
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var request = GetRequestScaffold(
+            "game/export/" + Uri.EscapeDataString(gameId.Trim()),
+            options.ToQueryParameters());
+        request.Headers["Accept"] = "application/x-chess-pgn";
+
+        var response = await SendRequest(request, cancellationToken: cancellationToken);
         var content = await response.Content.ReadAsStringAsync();
-
-        return Game.FromPgn(content);
+        cancellationToken.ThrowIfCancellationRequested();
+        return content;
     }
 
     /// <summary>
@@ -39,24 +107,7 @@ public partial class LichessApiClient
         var response = await SendRequest(request);
         var content = await response.Content.ReadAsStringAsync();
 
-        var list = new List<Game>();
-
-        var gamepgns = content.Split("\n\n\n");
-        foreach (var gamepgn in gamepgns)
-        {
-            try
-            {
-                if (gamepgn.Length < 10) continue;
-                list.Add(Game.FromPgn(gamepgn.Trim()));
-            }
-            catch (Exception)
-            {
-                _logger.Warning("Failed to parse a pgn: " + gamepgn);
-                throw;
-            }
-        }
-
-        return list;
+        return ParsePgnGames(content);
     }
 
     /// <summary>
@@ -71,24 +122,7 @@ public partial class LichessApiClient
         var response = await SendRequest(request, "POST");
         var content = await response.Content.ReadAsStringAsync();
 
-        var list = new List<Game>();
-
-        var gamepgns = content.Split("\n\n\n");
-        foreach (var gamepgn in gamepgns)
-        {
-            try
-            {
-                if (gamepgn.Length < 10) continue;
-                list.Add(Game.FromPgn(gamepgn.Trim()));
-            }
-            catch (Exception)
-            {
-                _logger.Warning("Failed to parse a pgn: " + gamepgn);
-                throw;
-            }
-        }
-
-        return list;
+        return ParsePgnGames(content);
     }
 
     /// <summary>
@@ -103,24 +137,7 @@ public partial class LichessApiClient
         var response = await SendRequest(request);
         var content = await response.Content.ReadAsStringAsync();
 
-        var list = new List<Game>();
-
-        var gamepgns = content.Split("\n\n\n");
-        foreach (var gamepgn in gamepgns)
-        {
-            try
-            {
-                if (gamepgn.Length < 10) continue;
-                list.Add(Game.FromPgn(gamepgn.Trim()));
-            }
-            catch (Exception)
-            {
-                _logger.Warning("Failed to parse a pgn: " + gamepgn);
-                throw;
-            }
-        }
-
-        return list;
+        return ParsePgnGames(content);
     }
 
     /// <summary>
@@ -136,24 +153,7 @@ public partial class LichessApiClient
         var response = await SendRequest(request);
         var content = await response.Content.ReadAsStringAsync();
 
-        var list = new List<Game>();
-
-        var gamepgns = content.Split("\n\n\n");
-        foreach (var gamepgn in gamepgns)
-        {
-            try
-            {
-                if (gamepgn.Length < 10) continue;
-                list.Add(Game.FromPgn(gamepgn.Trim()));
-            }
-            catch (Exception)
-            {
-                _logger.Warning("Failed to parse a pgn: " + gamepgn);
-                throw;
-            }
-        }
-
-        return list;
+        return ParsePgnGames(content);
     }
 
     /// <summary>
@@ -169,24 +169,26 @@ public partial class LichessApiClient
         var response = await SendRequest(request);
         var content = await response.Content.ReadAsStringAsync();
 
-        var list = new List<Game>();
+        return ParsePgnGames(content);
+    }
 
-        var gamepgns = content.Split("\n\n\n");
-        foreach (var gamepgn in gamepgns)
+    private static List<Game> ParsePgnGames(string content)
+    {
+        var games = new List<Game>();
+        var gamePgns = System.Text.RegularExpressions.Regex.Split(
+            content ?? string.Empty,
+            @"(?m)(?=^[\t ]*\[Event\s+"")",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        foreach (var gamePgn in gamePgns)
         {
-            try
-            {
-                if (gamepgn.Length < 10) continue;
-                list.Add(Game.FromPgn(gamepgn.Trim()));
-            }
-            catch (Exception)
-            {
-                _logger.Warning("Failed to parse a pgn: " + gamepgn);
-                throw;
-            }
+            if (string.IsNullOrWhiteSpace(gamePgn))
+                continue;
+
+            games.Add(Game.FromPgn(gamePgn.Trim('\r', '\n')));
         }
 
-        return list;
+        return games;
     }
 
     /// <summary>
@@ -227,19 +229,33 @@ public partial class LichessApiClient
     /// </summary>
     /// <param name="maxGames">The maximum number of ongoing games to fetch (default is 9, max 50).</param>
     /// <returns>A list of OngoingGame objects representing the current ongoing games.</returns>
-    public async Task<List<OngoingGame>> GetOngoingGamesAsync(int maxGames = 9)
+    public Task<List<OngoingGame>> GetOngoingGamesAsync(int maxGames = 9)
     {
-        await _ratelimitController.Consume("api/account", false);
+        return GetOngoingGamesAsync(maxGames, CancellationToken.None);
+    }
 
+    /// <summary>
+    /// Fetches the ongoing games for the current user and observes cancellation.
+    /// </summary>
+    public async Task<List<OngoingGame>> GetOngoingGamesAsync(int maxGames,
+        CancellationToken cancellationToken)
+    {
         if (maxGames < 1 || maxGames > 50)
-            throw new ArgumentOutOfRangeException(nameof(maxGames), "The number of games must be between 1 and 50.");
+            throw new ArgumentOutOfRangeException(nameof(maxGames),
+                "The number of games must be between 1 and 50.");
 
-        var request = GetRequestScaffold("api/account/playing", Tuple.Create("nb", maxGames.ToString()));
-        var response = await SendRequest(request);
+        await _ratelimitController.Consume("api/account", false, cancellationToken);
+
+        var request = GetRequestScaffold("api/account/playing",
+            Tuple.Create("nb", maxGames.ToString()));
+        var response = await SendRequest(request, cancellationToken: cancellationToken);
         var content = await response.Content.ReadAsStringAsync();
-                var json = LichessJson.Parse(content);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var json = LichessJson.Parse(content);
         return json.TryGetProperty("nowPlaying", out var nowPlaying)
-            ? nowPlaying.Deserialize<List<OngoingGame>>(LichessJson.Options) ?? new List<OngoingGame>()
+            ? nowPlaying.Deserialize<List<OngoingGame>>(LichessJson.Options)
+                ?? new List<OngoingGame>()
             : new List<OngoingGame>();
     }
 }

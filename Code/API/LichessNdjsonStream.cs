@@ -5,7 +5,7 @@ namespace LichessNET.API;
 /// <summary>
 /// Reads Lichess NDJSON streams line-by-line and raises parsed JSON events.
 /// </summary>
-public sealed class LichessNdjsonStream : IAsyncDisposable
+public sealed class LichessNdjsonStream : ILichessBoardEventStream
 {
     private const int WarningStreamCount = 5;
     private const int MaxStreamCount = 8;
@@ -32,9 +32,31 @@ public sealed class LichessNdjsonStream : IAsyncDisposable
         _logger = new LichessLog("LichessNdjsonStream_" + _streamId);
     }
 
+    private event Action<ILichessBoardEventStream, JsonElement>? InterfaceLineReceived;
+    private event Action<ILichessBoardEventStream, Exception>? InterfaceErrorReceived;
+    private event Action<ILichessBoardEventStream>? InterfaceCompleted;
+
     public event Action<LichessNdjsonStream, JsonElement> LineReceived;
     public event Action<LichessNdjsonStream, Exception> ErrorReceived;
     public event Action<LichessNdjsonStream> Completed;
+
+    event Action<ILichessBoardEventStream, JsonElement>? ILichessBoardEventStream.LineReceived
+    {
+        add => InterfaceLineReceived += value;
+        remove => InterfaceLineReceived -= value;
+    }
+
+    event Action<ILichessBoardEventStream, Exception>? ILichessBoardEventStream.ErrorReceived
+    {
+        add => InterfaceErrorReceived += value;
+        remove => InterfaceErrorReceived -= value;
+    }
+
+    event Action<ILichessBoardEventStream>? ILichessBoardEventStream.Completed
+    {
+        add => InterfaceCompleted += value;
+        remove => InterfaceCompleted -= value;
+    }
 
     public Task Completion => _completion;
 
@@ -67,18 +89,33 @@ public sealed class LichessNdjsonStream : IAsyncDisposable
 
     private async Task RunAsync()
     {
-        await WaitForSlotAsync();
-        IncrementStreamCount();
+        var streamCountIncremented = false;
 
         try
         {
-            var stream = await Sandbox.Http.RequestStreamAsync(_requestUri, _method, null, _headers, _cancellation.Token);
+            await WaitForSlotAsync();
+            _cancellation.Token.ThrowIfCancellationRequested();
+
+            IncrementStreamCount();
+            streamCountIncremented = true;
+
+            Stream stream;
+            try
+            {
+                stream = await Sandbox.Http.RequestStreamAsync(_requestUri, _method, null, _headers,
+                    _cancellation.Token);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                throw new LichessApiException((exception as HttpRequestException)?.StatusCode);
+            }
+
             using (stream)
             using (var reader = new StreamReader(stream))
             {
                 while (!_cancellation.IsCancellationRequested)
                 {
-                    var line = await reader.ReadLineAsync();
+                    var line = await reader.ReadLineAsync(_cancellation.Token);
                     if (line == null)
                         break;
 
@@ -88,12 +125,12 @@ public sealed class LichessNdjsonStream : IAsyncDisposable
                     try
                     {
                         var json = LichessJson.Parse(line.Trim());
-                        LineReceived?.Invoke(this, json);
+                        RaiseLineReceived(json);
                     }
-                    catch (Exception ex)
+                    catch (Exception exception)
                     {
-                        _logger.Warning("Failed to parse stream line: " + ex.Message);
-                        ErrorReceived?.Invoke(this, ex);
+                        _logger.Warning("Failed to parse stream line: " + exception.Message);
+                        RaiseErrorReceived(exception);
                     }
                 }
             }
@@ -101,16 +138,43 @@ public sealed class LichessNdjsonStream : IAsyncDisposable
         catch (OperationCanceledException) when (_cancellation.IsCancellationRequested)
         {
         }
-        catch (Exception ex)
+        catch (HttpRequestException exception)
         {
-            _logger.Error("Stream failed: " + ex.Message);
-            ErrorReceived?.Invoke(this, ex);
+            var safeException = exception as LichessApiException
+                                ?? new LichessApiException(exception.StatusCode);
+            _logger.Error("Stream failed: " + safeException.Message);
+            RaiseErrorReceived(safeException);
+        }
+        catch (Exception exception)
+        {
+            _logger.Error("Stream failed: " + exception.Message);
+            RaiseErrorReceived(exception);
         }
         finally
         {
-            DecrementStreamCount();
-            Completed?.Invoke(this);
+            if (streamCountIncremented)
+                DecrementStreamCount();
+
+            RaiseCompleted();
         }
+    }
+
+    private void RaiseLineReceived(JsonElement json)
+    {
+        LineReceived?.Invoke(this, json);
+        InterfaceLineReceived?.Invoke(this, json);
+    }
+
+    private void RaiseErrorReceived(Exception exception)
+    {
+        ErrorReceived?.Invoke(this, exception);
+        InterfaceErrorReceived?.Invoke(this, exception);
+    }
+
+    private void RaiseCompleted()
+    {
+        Completed?.Invoke(this);
+        InterfaceCompleted?.Invoke(this);
     }
 
     private async Task WaitForSlotAsync()

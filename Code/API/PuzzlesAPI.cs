@@ -8,60 +8,99 @@ namespace LichessNET.API;
 
 public partial class LichessApiClient
 {
-    public async Task<Puzzle> GetDailyPuzzle()
+    public Task<Puzzle> GetDailyPuzzle()
     {
-        await _ratelimitController.Consume();
+        return GetDailyPuzzle(CancellationToken.None);
+    }
+
+    public async Task<Puzzle> GetDailyPuzzle(CancellationToken cancellationToken)
+    {
         var request = GetRequestScaffold("api/puzzle/daily");
-        Log.Info(request);
-        var response = await SendRequest(request);
-        return await ReadPuzzleResponse(response);
+        var response = await SendRequest(request, cancellationToken: cancellationToken);
+        return await ReadPuzzleResponse(response, cancellationToken);
     }
 
-    public async Task<Puzzle> GetRandomPuzzle()
+    public Task<Puzzle> GetRandomPuzzle()
     {
-        await _ratelimitController.Consume();
+        return GetRandomPuzzle(CancellationToken.None);
+    }
+
+    public async Task<Puzzle> GetRandomPuzzle(CancellationToken cancellationToken)
+    {
         var request = GetRequestScaffold("api/puzzle/next");
-        var response = await SendRequest(request);
-        return await ReadPuzzleResponse(response);
+        var response = await SendRequest(request, cancellationToken: cancellationToken);
+        return await ReadPuzzleResponse(response, cancellationToken);
     }
 
-    public async Task<Puzzle> GetPuzzleByID(string id)
+    public Task<Puzzle> GetPuzzleByID(string id)
     {
-        await _ratelimitController.Consume();
+        return GetPuzzleByID(id, CancellationToken.None);
+    }
+
+    public async Task<Puzzle> GetPuzzleByID(string id, CancellationToken cancellationToken)
+    {
         var request = GetRequestScaffold($"api/puzzle/{id}");
-        var response = await SendRequest(request);
-        return await ReadPuzzleResponse(response);
+        var response = await SendRequest(request, cancellationToken: cancellationToken);
+        return await ReadPuzzleResponse(response, cancellationToken);
     }
 
-    public async Task<PuzzleDashboard> GetPuzzleDashboardAsync(int days)
+    public Task<PuzzleDashboard> GetPuzzleDashboardAsync(int days)
     {
-        await _ratelimitController.Consume();
+        return GetPuzzleDashboardAsync(days, CancellationToken.None);
+    }
+
+    public async Task<PuzzleDashboard> GetPuzzleDashboardAsync(int days,
+        CancellationToken cancellationToken)
+    {
         var request = GetRequestScaffold($"api/puzzle/dashboard/{days}");
-        var response = await SendRequest(request);
-        return LichessJson.Deserialize<PuzzleDashboard>(await response.Content.ReadAsStringAsync());
+        var response = await SendRequest(request, cancellationToken: cancellationToken);
+        var content = await response.Content.ReadAsStringAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        return LichessJson.Deserialize<PuzzleDashboard>(content);
     }
 
-    public async Task<StormDashboard> GetStormDashboardAsync(string username, int days = 30)
+    public Task<StormDashboard> GetStormDashboardAsync(string username, int days = 30)
     {
-        await _ratelimitController.Consume();
-        var request = GetRequestScaffold($"api/storm/dashboard/{username}", new Tuple<string, string>("days", days.ToString()));
-        var response = await SendRequest(request);
-        return LichessJson.Deserialize<StormDashboard>(await response.Content.ReadAsStringAsync());
+        return GetStormDashboardAsync(username, days, CancellationToken.None);
     }
 
-    public async Task<PuzzleRace> CreatePuzzleRaceAsync()
+    public async Task<StormDashboard> GetStormDashboardAsync(string username, int days,
+        CancellationToken cancellationToken)
     {
-        await _ratelimitController.Consume();
+        var request = GetRequestScaffold($"api/storm/dashboard/{username}",
+            Tuple.Create("days", days.ToString()));
+        var response = await SendRequest(request, cancellationToken: cancellationToken);
+        var content = await response.Content.ReadAsStringAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        return LichessJson.Deserialize<StormDashboard>(content);
+    }
+
+    public Task<PuzzleRace> CreatePuzzleRaceAsync()
+    {
+        return CreatePuzzleRaceAsync(CancellationToken.None);
+    }
+
+    public async Task<PuzzleRace> CreatePuzzleRaceAsync(CancellationToken cancellationToken)
+    {
         var request = GetRequestScaffold("api/racer");
-        var response = await SendRequest(request, "POST");
-        return LichessJson.Deserialize<PuzzleRace>(await response.Content.ReadAsStringAsync());
+        var response = await SendRequest(request, "POST",
+            cancellationToken: cancellationToken);
+        var content = await response.Content.ReadAsStringAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        return LichessJson.Deserialize<PuzzleRace>(content);
     }
 
-    private static async Task<Puzzle> ReadPuzzleResponse(LichessResponse response)
+    private static async Task<Puzzle> ReadPuzzleResponse(LichessResponse response,
+        CancellationToken cancellationToken)
     {
-        var json = LichessJson.Parse(await response.Content.ReadAsStringAsync());
-        var puzzle = json.GetProperty("puzzle").Deserialize<Puzzle>(LichessJson.Options);
-        puzzle.Game = json.GetProperty("game").Deserialize<PuzzleGame>(LichessJson.Options);
+        var content = await response.Content.ReadAsStringAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var json = LichessJson.Parse(content);
+        var puzzle = json.GetProperty("puzzle").Deserialize<Puzzle>(LichessJson.Options)
+            ?? throw new JsonException("Puzzle response did not contain puzzle data.");
+        puzzle.Game = json.GetProperty("game").Deserialize<PuzzleGame>(LichessJson.Options)
+            ?? throw new JsonException("Puzzle response did not contain game data.");
         return puzzle;
     }
 }
