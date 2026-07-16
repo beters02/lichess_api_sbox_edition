@@ -23,6 +23,7 @@ public sealed class LichessGameSessionOptions
     };
 
     public bool AutoReconnect { get; set; } = true;
+    public bool UseEventStream { get; set; } = true;
 
     /// <summary>
     /// Delays used for consecutive automatic reconnect attempts. The final

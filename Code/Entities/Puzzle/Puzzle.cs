@@ -23,6 +23,16 @@ public class Puzzle
     public int InitialPly { get; set; }
 
     /// <summary>
+    /// The puzzle position after the opponent's setup move.
+    /// </summary>
+    public string Fen { get; set; }
+
+    /// <summary>
+    /// The opponent move that produced <see cref="Fen"/>.
+    /// </summary>
+    public string LastMove { get; set; }
+
+    /// <summary>
     /// How often that puzzle was already played
     /// </summary>
     public int Plays { get; set; }

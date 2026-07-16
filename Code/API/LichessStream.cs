@@ -15,12 +15,12 @@ public class LichessStream
     private readonly string _requestUri;
     private readonly string _streamId;
 
-    public LichessStream(string requestUrl, string method = "GET")
+    public LichessStream(string requestUrl, string method = "GET", bool debugEnabled = true)
     {
         _requestUri = requestUrl;
         _method = method;
         _streamId = CreateStreamId();
-        _logger = new LichessLog("LichessStream_" + _streamId);
+        _logger = new LichessLog("LichessStream_" + _streamId, debugEnabled);
     }
 
     public event GameUpdateEventHandler GameUpdateReceived;
@@ -50,6 +50,7 @@ public class LichessStream
                                 " active streams. The maximum number of streams per IP on Lichess is 8.");
             }
 
+            _logger.Request(_method, _requestUri);
             var stream = await Sandbox.Http.RequestStreamAsync(_requestUri, _method, null, null,
                 cancellationToken);
             using (stream)

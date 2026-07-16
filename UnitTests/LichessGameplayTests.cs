@@ -57,6 +57,37 @@ public sealed class LichessGameplayTests
     }
 
     [TestMethod]
+    public async Task QueueWaitsForAccountStreamBeforePostingSeek()
+    {
+        var stream = new FakeBoardStream(false);
+        var client = new FakeBoardClient(stream);
+        await using var queue = new LichessQueue(client);
+
+        var starting = queue.StartSeekAsync(new BoardSeekOptions());
+        await stream.StartedTask;
+        Assert.AreEqual(0, client.SeekCalls);
+
+        stream.MarkReady();
+        await starting;
+        Assert.AreEqual(1, client.SeekCalls);
+    }
+
+    [TestMethod]
+    public async Task QueueRejectsBlitzPublicSeek()
+    {
+        var stream = new FakeBoardStream();
+        var client = new FakeBoardClient(stream);
+        await using var queue = new LichessQueue(client);
+
+        await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() =>
+            queue.StartSeekAsync(new BoardSeekOptions
+            {
+                TimeMinutes = 5,
+                IncrementSeconds = 3
+            }));
+    }
+
+    [TestMethod]
     public async Task SessionReconcilesPendingAndRebuildsDivergentHistory()
     {
         var first = new FakeBoardStream();
@@ -189,6 +220,17 @@ public sealed class LichessGameplayTests
 
     private sealed class FakeBoardStream : ILichessBoardEventStream
     {
+        private readonly TaskCompletionSource<bool> _ready = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<bool> _started = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public FakeBoardStream(bool ready = true)
+        {
+            if (ready)
+                _ready.TrySetResult(true);
+        }
+
         public event Action<ILichessBoardEventStream, JsonElement>? LineReceived;
         public event Action<ILichessBoardEventStream, Exception>? ErrorReceived;
         public event Action<ILichessBoardEventStream>? Completed;
@@ -197,12 +239,17 @@ public sealed class LichessGameplayTests
         public bool Started { get; private set; }
         public bool Disposed { get; private set; }
         public Task Completion => Task.CompletedTask;
+        public Task Ready => _ready.Task;
+        public Task StartedTask => _started.Task;
 
         public void Start()
         {
             Started = true;
+            _started.TrySetResult(true);
             OnStart?.Invoke();
         }
+
+        public void MarkReady() => _ready.TrySetResult(true);
 
         public void Emit(string json)
         {
@@ -232,6 +279,8 @@ public sealed class LichessGameplayTests
         private readonly Queue<ILichessBoardEventStream> _gameStreams = new();
         private readonly ILichessBoardEventStream _accountStream;
 
+        public int SeekCalls { get; private set; }
+
         public FakeBoardClient(ILichessBoardEventStream accountStream,
             params ILichessBoardEventStream[] gameStreams)
         {
@@ -258,6 +307,7 @@ public sealed class LichessGameplayTests
         public Task CreateBoardSeekAsync(BoardSeekOptions options,
             CancellationToken cancellationToken = default)
         {
+            SeekCalls++;
             return cancellationToken.IsCancellationRequested
                 ? Task.FromCanceled(cancellationToken)
                 : Task.CompletedTask;

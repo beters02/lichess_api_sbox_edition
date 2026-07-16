@@ -14,12 +14,16 @@ public partial class LichessApiClient : ILichessBoardClient
     private const int RateLimitCooldownSeconds = 60;
 
     private readonly LichessLog _logger;
+    private readonly bool _debugEnabled;
     private readonly ApiRatelimitController _ratelimitController = new();
     private string? _token;
+
+    public bool DebugEnabled => _debugEnabled;
 
     public LichessApiClient(bool doLogging = true)
     {
         _logger = new LichessLog("LichessAPIClient", doLogging);
+        _debugEnabled = doLogging;
         _ratelimitController.RegisterBucket("api/account", 5, 3, TimeSpan.FromSeconds(15));
         _ratelimitController.RegisterBucket("api/streamer/live", 2, 1, TimeSpan.FromSeconds(5));
         _ratelimitController.RegisterBucket("api/stream/event", 2, 1, TimeSpan.FromSeconds(5));
@@ -100,6 +104,7 @@ public partial class LichessApiClient : ILichessBoardClient
             var headers = GetRequestHeaders(request, useToken);
             var uri = request.BuildUri();
             var safeUri = SanitizeUriForLogging(uri);
+            _logger.Request(method, uri, headers, content);
             _logger.Information("Sending request to " + safeUri);
 
             HttpResponseMessage responseMessage;

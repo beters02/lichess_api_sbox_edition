@@ -1,11 +1,78 @@
 ﻿#nullable enable annotations
 
 using LichessNET.Entities.OAuth;
+using LichessNET.Internal;
 
 namespace LichessNET.API;
 
 public partial class LichessApiClient
 {
+    public async Task<OAuthTokenResponse> ExchangeAuthorizationCodeAsync(
+        string code,
+        string codeVerifier,
+        string redirectUri,
+        string clientId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(code)
+            || string.IsNullOrWhiteSpace(codeVerifier)
+            || string.IsNullOrWhiteSpace(redirectUri)
+            || string.IsNullOrWhiteSpace(clientId))
+        {
+            throw new ArgumentException("OAuth token exchange fields are required.");
+        }
+
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["grant_type"] = "authorization_code",
+            ["code"] = code,
+            ["code_verifier"] = codeVerifier,
+            ["redirect_uri"] = redirectUri,
+            ["client_id"] = clientId
+        });
+        var response = await Sandbox.Http.RequestAsync(
+            Constants.BaseUrl + "api/token",
+            "POST",
+            content,
+            new Dictionary<string, string>(),
+            cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw new LichessApiException(response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        try
+        {
+            return JsonSerializer.Deserialize<OAuthTokenResponse>(
+                body,
+                LichessJson.Options)
+                ?? throw LichessApiException.InvalidResponse(response.StatusCode);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException
+            && exception is not LichessApiException)
+        {
+            throw LichessApiException.InvalidResponse(response.StatusCode);
+        }
+    }
+
+    public async Task RevokeCurrentTokenAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var token = GetToken();
+        if (string.IsNullOrWhiteSpace(token))
+            return;
+        var headers = new Dictionary<string, string>
+        {
+            ["Authorization"] = "Bearer " + token
+        };
+        var response = await Sandbox.Http.RequestAsync(
+            Constants.BaseUrl + "api/token",
+            "DELETE",
+            null,
+            headers,
+            cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw new LichessApiException(response.StatusCode);
+    }
+
     /// <summary>
     /// Tests OAuth tokens without placing them in the request URI or logs.
     /// </summary>
@@ -53,9 +120,8 @@ public partial class LichessApiClient
     /// </summary>
     public async Task DeleteTokenAsync(string token)
     {
-        var request = GetRequestScaffold("api/token");
-        request.Headers["Authorization"] = "Bearer " + token;
-        await SendRequest(request, "DELETE", useToken: false);
+        await SetToken(token);
+        await RevokeCurrentTokenAsync();
     }
 }
 

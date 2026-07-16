@@ -4,6 +4,7 @@ using LichessNET.API;
 using LichessNET.Entities.Board;
 using LichessNET.Entities.Enumerations;
 using LichessNET.Entities.OAuth;
+using LichessNET.Internal;
 
 namespace LichessNET.Gameplay;
 
@@ -34,6 +35,7 @@ public sealed class LichessGameFoundEventArgs : EventArgs
 public sealed class LichessQueue : IAsyncDisposable
 {
     private readonly ILichessBoardClient _client;
+    private readonly LichessLog _logger;
     private CancellationTokenSource? _cancellation;
     private ILichessBoardEventStream? _accountStream;
     private Task _seekTask = Task.CompletedTask;
@@ -48,6 +50,8 @@ public sealed class LichessQueue : IAsyncDisposable
     public LichessQueue(ILichessBoardClient client)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
+        _logger = new LichessLog("LichessQueue",
+            client is LichessApiClient api && api.DebugEnabled);
     }
 
     /// <summary>
@@ -94,17 +98,21 @@ public sealed class LichessQueue : IAsyncDisposable
             throw new ArgumentNullException(nameof(options));
 
         options.ToFormData();
+        _logger.Information($"Starting seek: {options.TimeMinutes}+{options.IncrementSeconds}, " +
+            $"rated={options.Rated}, color={options.Color}, variant={options.Variant}.");
         await StopAsync();
         SetState(LichessQueueState.ValidatingToken);
 
         try
         {
             await ValidatePlayTokenAsync(cancellationToken);
+            _logger.Information("Token validated for board play.");
             cancellationToken.ThrowIfCancellationRequested();
 
             _cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _accountStreamErrorObserved = false;
             _accountStream = await _client.CreateBoardAccountEventStreamAsync(_cancellation.Token);
+            _logger.Information("Account event stream created; attaching handlers.");
             _accountStream.LineReceived += HandleAccountLine;
             _accountStream.ErrorReceived += HandleStreamError;
             _accountStream.Completed += HandleStreamCompleted;
@@ -112,16 +120,30 @@ public sealed class LichessQueue : IAsyncDisposable
             // A deterministic fake may deliver the first event synchronously.
             SetState(LichessQueueState.Seeking);
             _accountStream.Start();
+            _logger.Information("Waiting for account event request dispatch.");
+            await _accountStream.Ready;
+            _logger.Information("Account event request dispatched.");
+
+            if (_state != LichessQueueState.Seeking)
+            {
+                _logger.Information("Game arrived before seek POST; skipping POST.");
+                return;
+            }
+
+            _cancellation.Token.ThrowIfCancellationRequested();
+            _logger.Information("Submitting seek POST; waiting for gameStart event.");
             _seekTask = RunSeekAsync(options, _cancellation.Token);
         }
         catch (OperationCanceledException)
         {
+            _logger.Information("Seek startup canceled.");
             await ReleaseResourcesAsync();
             SetState(LichessQueueState.Idle);
             throw new OperationCanceledException(cancellationToken);
         }
         catch (Exception ex)
         {
+            _logger.Error("Seek startup failed: " + ex.Message);
             await ReleaseResourcesAsync();
             SetState(LichessQueueState.Faulted);
 #pragma warning disable CA2200 // ExceptionDispatchInfo is not whitelisted by s&box.
@@ -153,12 +175,15 @@ public sealed class LichessQueue : IAsyncDisposable
         try
         {
             await _client.CreateBoardSeekAsync(options, cancellationToken);
+            _logger.Information("Seek POST ended; account stream remains authoritative.");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            _logger.Information("Seek POST canceled.");
         }
         catch (Exception ex)
         {
+            _logger.Error("Seek POST failed: " + ex.Message);
             OnError?.Invoke(this, ex);
             SetState(LichessQueueState.Faulted);
             if (_cancellation != null && !_cancellation.IsCancellationRequested)
@@ -203,15 +228,22 @@ public sealed class LichessQueue : IAsyncDisposable
 
         try
         {
-            if (!BoardEventParser.GetEventType(data).Equals("gameStart", StringComparison.OrdinalIgnoreCase))
+            var eventType = BoardEventParser.GetEventType(data);
+            _logger.Debug("Account event received: " +
+                (string.IsNullOrWhiteSpace(eventType) ? "[unknown]" : eventType) + ".");
+            if (!eventType.Equals("gameStart", StringComparison.OrdinalIgnoreCase))
                 return;
 
             var gameStart = BoardEventParser.ParseGameStart(data);
             var game = gameStart?.Game;
             var gameId = game?.BestGameId;
             if (string.IsNullOrWhiteSpace(gameId))
+            {
+                _logger.Warning("gameStart event did not contain a game id.");
                 return;
+            }
 
+            _logger.Information($"Game accepted: id={gameId}, color={game?.Color ?? "unknown"}.");
             SetState(LichessQueueState.GameFound);
             OnGameFound?.Invoke(this, new LichessGameFoundEventArgs(gameId, game?.Color, game));
 
@@ -231,6 +263,7 @@ public sealed class LichessQueue : IAsyncDisposable
             return;
 
         _accountStreamErrorObserved = true;
+        _logger.Error("Account event stream failed: " + exception.Message);
         OnError?.Invoke(this, exception);
         SetState(LichessQueueState.Faulted);
 
@@ -245,6 +278,8 @@ public sealed class LichessQueue : IAsyncDisposable
         {
             return;
         }
+
+        _logger.Information("Account event stream completed in state " + _state + ".");
 
         if (_state == LichessQueueState.GameFound)
         {
@@ -295,6 +330,7 @@ public sealed class LichessQueue : IAsyncDisposable
             return;
 
         _state = state;
+        _logger.Debug("State changed: " + state + ".");
         OnStateChanged?.Invoke(this, state);
     }
 }

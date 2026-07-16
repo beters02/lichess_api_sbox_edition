@@ -13,7 +13,7 @@ public class TokenInfo
     [JsonConverter(typeof(PermissionJsonConverter))]
     [JsonPropertyName("scopes")]
     public List<TokenPermission> Permissions { get; set; }
-    public int? Expires { get; set; }
+    public long? Expires { get; set; }
 
     public bool IsAllowed(TokenPermission permission) => Permissions.Contains(permission);
     public static List<TokenPermission> GetPermissions(string permissions)
@@ -21,8 +21,9 @@ public class TokenInfo
         string[] permissionsList = permissions.Split(',');
         List<TokenPermission> tokenPermissions = new List<TokenPermission>();
 
-        foreach (string permission in permissionsList)
+        foreach (string permissionValue in permissionsList)
         {
+            var permission = permissionValue.Trim();
             switch (permission)
             {
                 case "email:read":
@@ -66,6 +67,9 @@ public class TokenInfo
                     break;
                 case "puzzle:read":
                     tokenPermissions.Add(TokenPermission.ReadPuzzleActivity);
+                    break;
+                case "puzzle:write":
+                    tokenPermissions.Add(TokenPermission.WritePuzzleActivity);
                     break;
                 case "racer:write":
                     tokenPermissions.Add(TokenPermission.WriteRaces);

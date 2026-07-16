@@ -7,14 +7,38 @@ namespace LichessNET.API;
 
 public partial class LichessApiClient
 {
-    public async Task CreateBoardSeekAsync(BoardSeekOptions options, CancellationToken cancellationToken = default)
+    public async Task CreateBoardSeekAsync(BoardSeekOptions options,
+        CancellationToken cancellationToken = default)
     {
         if (options == null)
             throw new ArgumentNullException(nameof(options));
 
         var request = GetRequestScaffold("api/board/seek");
-        await SendRequest(request, "POST", formData: options.ToFormData(), formDataAsContent: true,
-            cancellationToken: cancellationToken);
+        var form = options.ToFormData();
+        using var content = new FormUrlEncodedContent(form);
+        var headers = GetRequestHeaders(request);
+        var uri = request.BuildUri();
+
+        try
+        {
+            await _ratelimitController.Consume(
+                "api/board/seek", true, cancellationToken);
+            _logger.Request("POST", uri, headers, content);
+            foreach (var field in form.OrderBy(pair => pair.Key))
+                _logger.Debug($"HTTP form: {field.Key}={field.Value}");
+
+            using var stream = await Sandbox.Http.RequestStreamAsync(
+                uri,
+                "POST",
+                content,
+                headers,
+                cancellationToken);
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+        }
+        catch (HttpRequestException exception)
+        {
+            throw new LichessApiException(exception.StatusCode);
+        }
     }
 
     /// <summary>
@@ -26,7 +50,7 @@ public partial class LichessApiClient
         var request = GetRequestScaffold("api/stream/event");
         await _ratelimitController.Consume("api/stream/event", true, cancellationToken);
 
-        return new LichessNdjsonStream(request.BuildUri(), "GET", GetRequestHeaders(request), cancellationToken);
+        return new LichessNdjsonStream(request.BuildUri(), "GET", GetRequestHeaders(request), cancellationToken, _debugEnabled);
     }
 
     public async Task<LichessNdjsonStream> StreamBoardAccountEventsAsync(
@@ -49,7 +73,7 @@ public partial class LichessApiClient
         var request = GetRequestScaffold("api/board/game/stream/" + Uri.EscapeDataString(gameId));
         await _ratelimitController.Consume("api/board/game/stream", true, cancellationToken);
 
-        return new LichessNdjsonStream(request.BuildUri(), "GET", GetRequestHeaders(request), cancellationToken);
+        return new LichessNdjsonStream(request.BuildUri(), "GET", GetRequestHeaders(request), cancellationToken, _debugEnabled);
     }
 
     public async Task<LichessNdjsonStream> StreamBoardGameAsync(string gameId,

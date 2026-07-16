@@ -1,0 +1,761 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>package.brycpt.lichessnetport</name>
+    </assembly>
+    <members>
+        <member name="T:LichessNET.API.ApiRatelimitController">
+            <summary>
+            The APIRatelimitController class manages and enforces rate limiting
+            for API requests to prevent abuse and ensure fair usage of system resources.
+            </summary>
+        </member>
+        <member name="T:LichessNET.API.LichessApiClient">
+            <summary>
+                This class represents a client for the lichess API.
+                It handles all ratelimits and requests.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetAccountEmail">
+            <summary>
+                Retrieves the email address of the authenticated user.
+            </summary>
+            <returns>
+                A string representing the email address of the authenticated user.
+            </returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetOwnProfile">
+            <summary>
+            Retrieves the profile information of the authenticated user from the Lichess platform.
+            </summary>
+            <returns>
+            An instance of <see cref="T:LichessNET.Entities.Social.LichessUser"/> representing the profile details of the user.
+            </returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetAccountPreferences">
+            <summary>
+            Retrieves the account preferences of the authenticated user.
+            </summary>
+            <returns>
+            An instance of <see cref="T:LichessNET.Entities.Account.AccountPreferences"/> representing the user's account preferences.
+            </returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetKidModeStatus">
+            <summary>
+                Determines whether the authenticated user's account is in kid mode.
+            </summary>
+            <returns>
+                A boolean value indicating if the user's account is set to kid mode.
+            </returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.SetKidModeStatus(System.Boolean)">
+            <summary>
+            Sets the kid mode status for the authenticated account.
+            </summary>
+            <param name="enable">
+            A boolean value indicating whether to enable or disable kid mode.
+            </param>
+            <returns>
+            A boolean indicating whether the operation was successful.
+            </returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.FollowPlayerAsync(System.String)">
+            <summary>
+            Follows a player with the specified username on Lichess.
+            </summary>
+            <param name="username">
+            The username of the player to follow.
+            </param>
+            <returns>
+            A boolean value indicating whether the operation was successful.
+            </returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.UnfollowPlayerAsync(System.String)">
+            <summary>
+            Unfollows a specified player using their username.
+            </summary>
+            <param name="username">
+            The username of the player to unfollow.
+            </param>
+            <returns>
+            A boolean value indicating whether the operation was successful.
+            </returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.BlockPlayerAsync(System.String)">
+            <summary>
+            Blocks a player on Lichess based on their username.
+            </summary>
+            <param name="username">
+            The username of the player to be blocked.
+            </param>
+            <returns>
+            A boolean indicating whether the player was successfully blocked.
+            </returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.UnblockPlayerAsync(System.String)">
+            <summary>
+            Unblocks a player specified by username.
+            </summary>
+            <param name="username">
+            The username of the player to unblock.
+            </param>
+            <returns>
+            A boolean value indicating whether the player was successfully unblocked.
+            </returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetTimelineAsync(System.DateTime,System.Int32)">
+            <summary>
+            Gets the timeline of the authenticated user.
+            </summary>
+            <param name="since">When the timeline should start</param>
+            <param name="nb">The number of timeline events that should be loaded. Defaults to 15, the maximum is 50.</param>
+            <returns>A Timeline object</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetCloudEvaluationAsync(System.String,System.Int32,LichessNET.Entities.Enumerations.ChessVariant)">
+            <summary>
+            Gets the evaluation of a position from the Lichess cloud analysis.
+            </summary>
+            <param name="fen">The FEN of the position</param>
+            <param name="multiPv">How much different variants to include in the analysis. Can go up to 5.</param>
+            <param name="variant">Which chess variant the game is from</param>
+            <returns>A PositionEvaluation object</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetCloudEvaluationAsync(System.String,System.Int32,LichessNET.Entities.Enumerations.ChessVariant,System.Threading.CancellationToken)">
+            <summary>
+            Gets the evaluation of a position and observes cancellation while waiting
+            for rate limiting and the HTTP response.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.CreateBoardAccountEventStreamAsync(System.Threading.CancellationToken)">
+            <summary>
+            Creates an account event stream without starting it, allowing subscribers to attach first.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.CreateBoardGameStreamAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Creates a game event stream without starting it, allowing subscribers to attach first.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.AcceptChallengeAsync(System.String)">
+            <summary>
+            Accepts a challenge from Lichess
+            </summary>
+            <param name="challengeId">The challenge ID to accept</param>
+            <returns>A bool whether the operation was successful or not</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.DeclineChallengeAsync(System.String,LichessNET.Entities.Enumerations.ChallengeDeniedReason)">
+            <summary>
+            Declines a challenge from Lichess
+            </summary>
+            <param name="challengeId">The challenge ID to decline</param>
+            <param name="reason">The reason why the challenge is declined. Default is ChallengeDeniedReason.Generic</param>
+            <returns>A bool whether the operation was successful or not</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetChallengesAsync">
+            <summary>
+            Gets all challenges by a user. Those are sorted by incoming and outgoing challenges.
+            </summary>
+            <returns>A struct with all challenges</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.ChallengeUserAsync(System.String,System.Boolean,System.Int32,System.Int32,System.Nullable{System.Int32},System.String,System.String,System.String,System.Boolean,System.String)">
+            <summary>
+            Challenge a user to a game on Lichess
+            </summary>
+            <param name="username">The user to challenge</param>
+            <param name="rated">Whether the game should be rated or not</param>
+            <param name="clockLimit">The clock limit</param>
+            <param name="clockIncrement">The increment on the clock</param>
+            <param name="days">Days per move (for correspondence)</param>
+            <param name="color">The color you want to play</param>
+            <param name="variant">The variant to play</param>
+            <param name="fen">The starting FEN</param>
+            <param name="keepAliveStream">Keep the challenge alive after 20 seconds</param>
+            <param name="rules">Rules</param>
+            <returns>The challenge entity</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetGameAsync(System.String)">
+            <summary>
+            Retrieves a chess game using its unique identifier from the Lichess API.
+            </summary>
+            <param name="gameId">The unique identifier of the game to retrieve.</param>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetGameAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves and parses one game while observing cancellation.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetGameAsync(System.String,LichessNET.Entities.Game.GameExportOptions)">
+            <summary>
+            Retrieves and parses one game using the supplied export options.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetGameAsync(System.String,LichessNET.Entities.Game.GameExportOptions,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves and parses one game using the supplied export options.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetGamePgnAsync(System.String)">
+            <summary>
+            Retrieves the exact PGN returned by Lichess without parsing or trimming it.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetGamePgnAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves the exact PGN returned by Lichess while observing cancellation.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetGamePgnAsync(System.String,LichessNET.Entities.Game.GameExportOptions)">
+            <summary>
+            Retrieves the exact PGN returned by Lichess using the supplied options.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetGamePgnAsync(System.String,LichessNET.Entities.Game.GameExportOptions,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves the exact PGN returned by Lichess using the supplied options.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetGamesAsync(System.String,System.Int32)">
+            <summary>
+            Retrieves a list of chess games for a specified user from the Lichess API.
+            </summary>
+            <param name="username">The username of the player whose games are to be retrieved.</param>
+            <param name="max">The maximum number of games to retrieve. Default is 10.</param>
+            <returns>A task that represents the asynchronous operation. The task result contains a list of games.</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetGamesAsync(System.String[])">
+            <summary>
+            Retrieves multiple chess games from the Lichess API using a list of unique identifiers.
+            </summary>
+            <param name="ids">An array of unique game identifiers to retrieve.</param>
+            <returns>A list of <see cref="T:LichessNET.Entities.Game.Game"/> objects representing the retrieved chess games.</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetImportedGamesAsync">
+            <summary>
+            Retrieves a list of chess games that have been imported to the Lichess platform.
+            </summary>
+            <returns>A list of imported chess games.</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetArenaGames(System.String)">
+            <summary>
+            Retrieves a list of chess games from a specified arena using the provided arena identifier.
+            </summary>
+            <param name="ArenaID">The unique identifier of the arena from which to retrieve the games.</param>
+            <returns>A task representing the asynchronous operation that returns a list of games retrieved from the specified arena.</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetSwissGames(System.String)">
+            <summary>
+            Retrieves a list of games from a Swiss tournament using the Swiss ID from the Lichess API.
+            </summary>
+            <param name="SwissID">The unique identifier of the Swiss tournament to retrieve games from.</param>
+            <returns>A task representing the asynchronous operation, with a list of Swiss tournament games as the result.</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetGameStreamAsync(System.String)">
+            <summary>
+            Initializes a real-time stream of a chess game using its unique identifier from the Lichess API.
+            </summary>
+            <param name="gameId">The unique identifier of the game to stream.</param>
+            <returns>A GameStream object that provides updates as the game progresses.</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetGameStreamByUserAsync(System.String[])">
+            <summary>
+            Stream the games played between a list of users, in real time.
+            Only games where both players are part of the list are included.
+            The stream emits an event each time a game is started or finished.
+            To also get all current ongoing games at the beginning of the stream, use the withCurrentGames flag. 
+            </summary>
+            <param name="UserIDs"></param>
+            <returns></returns>
+            <exception cref="T:System.Exception"></exception>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetOngoingGamesAsync(System.Int32)">
+            <summary>
+            Fetches the ongoing games for the current user.
+            </summary>
+            <param name="maxGames">The maximum number of ongoing games to fetch (default is 9, max 50).</param>
+            <returns>A list of OngoingGame objects representing the current ongoing games.</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetOngoingGamesAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Fetches the ongoing games for the current user and observes cancellation.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.TestTokensAsync(System.Collections.Generic.List{System.String})">
+            <summary>
+            Tests OAuth tokens without placing them in the request URI or logs.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.DeleteTokenAsync(System.String)">
+            <summary>
+            Deletes a token.
+            </summary>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetTablebaseLookupAsync(System.String,LichessNET.Entities.Enumerations.ChessVariant)">
+            <summary>
+            Checks if a position is avaliable in the tablebases on lichess.
+            </summary>
+            <param name="fen">The position to check</param>
+            <param name="variant">The variant for which a position should be looked up. Currently supported are
+            Standard, Chess960, Atomic and Antichess
+            </param>
+            <returns>A TablebaseLookup object</returns>
+            <exception cref="T:System.ArgumentException">Thrown when an invalid variant was requested</exception>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetTeamAsync(System.String)">
+            <summary>
+                Get the team with the specified ID
+            </summary>
+            <param name="teamId">The ID of the team</param>
+            <returns>The team with the specified ID</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetPopularTeamsAsync(System.Int32)">
+            <summary>
+            Gets the most populat teams on Lichess in a paginated manner.
+            </summary>
+            <param name="page">Page number, defaults to 1</param>
+            <returns>The list of the most popular teams on the specified page.</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetTeamOfUserAsync(System.String)">
+            <summary>
+            Get the list of teams that the specified user is in.
+            </summary>
+            <param name="username">The username of the user</param>
+            <returns>A list of teams that the specified user is in</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetTeamMembersAsync(System.String)">
+            <summary>
+            This funciton gets the members of a team, in chronoclogical order of joining the team. (Latest first),
+            with up to 5000 members.
+            </summary>
+            <param name="teamId">ID of the Team</param>
+            <returns></returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetTeamSwissTournamentsAsync(System.String,System.Int32)">
+            <summary>
+            Retrieves all Swiss tournaments of a team.
+            </summary>
+            <param name="teamId">The ID of the team.</param>
+            <param name="max">The maximum number of tournaments to download. Default is 100.</param>
+            <returns>A task representing the asynchronous operation, containing the list of Swiss tournaments.</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.GetTeamArenaTournamentsAsync(System.String,System.Int32)">
+            <summary>
+            Retrieves all Arena tournaments relevant to a team.
+            </summary>
+            <param name="teamId">The ID of the team.</param>
+            <param name="max">The maximum number of tournaments to download. Default is 100.</param>
+            <returns>A task representing the asynchronous operation, containing the list of Arena tournaments.</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.JoinTeamAsync(System.String,System.String,System.String)">
+            <summary>
+            Joins a team.
+            </summary>
+            <param name="teamId">The ID of the team.</param>
+            <param name="message">The message for the team join request, required if the team manually reviews admission requests.</param>
+            <param name="password">The password for the team, if required.</param>
+            <returns>A task representing the asynchronous operation, containing the join team response.</returns>
+        </member>
+        <member name="M:LichessNET.API.LichessApiClient.LeaveTeamAsync(System.String)">
+            <summary>
+            Leaves a team.
+            </summary>
+            <param name="teamId">The ID of the team.</param>
+            <returns>A task representing the asynchronous operation, containing the leave team response.</returns>
+        </member>
+        <member name="T:LichessNET.API.ILichessBoardClient">
+            <summary>
+            Operations required to seek and play games through the Lichess Board API.
+            </summary>
+        </member>
+        <member name="T:LichessNET.API.ILichessBoardEventStream">
+            <summary>
+            An unstarted Lichess board event stream.
+            </summary>
+        </member>
+        <member name="T:LichessNET.API.LichessApiException">
+            <summary>
+            A sanitized failure returned by the Lichess API.
+            </summary>
+        </member>
+        <member name="T:LichessNET.API.LichessNdjsonStream">
+            <summary>
+            Reads Lichess NDJSON streams line-by-line and raises parsed JSON events.
+            </summary>
+        </member>
+        <member name="T:LichessNET.API.LichessStream">
+            <summary>
+            Represents a stream sent by Lichess.
+            </summary>
+        </member>
+        <!-- Badly formed XML comment ignored for member "T:LichessNET.Database.DatabaseClient" -->
+        <member name="T:LichessNET.Entities.Account.AccountPreferences">
+            <summary>
+                Represents the account preferences of a user on Lichess.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Account.Preferences">
+            <summary>
+                Represents the visual and gameplay preferences settings for a user on the Lichess platform.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Analysis.EvaluationScoreKind">
+            <summary>
+            Identifies how a cloud-analysis score should be interpreted.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Analysis.EvaluationScore">
+            <summary>
+            A cloud-analysis score that preserves whether its signed value represents
+            centipawns or moves to mate.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Analysis.PrincipalVariation.Cp">
+            <summary>
+            Centipawn evaluation from White's point of view. This legacy property
+            remains non-nullable for source compatibility; use <see cref="P:LichessNET.Entities.Analysis.PrincipalVariation.Score"/>
+            to distinguish centipawn and mate evaluations.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Analysis.PrincipalVariation.Mate">
+            <summary>
+            Signed moves-to-mate evaluation from White's point of view.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Analysis.PrincipalVariation.Score">
+            <summary>
+            Evaluation with its centipawn-or-mate kind preserved.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Analysis.PrincipalVariation.UciMoves">
+            <summary>
+            Principal variation split into individual UCI move tokens.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Analysis.PrincipalVariation.MoveList">
+            <summary>
+            Alias for <see cref="P:LichessNET.Entities.Analysis.PrincipalVariation.UciMoves"/> for consistency with board state models.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Board.BoardObjectNameConverter">
+            <summary>
+            Preserves legacy string properties while accepting the object form used by
+            current Board API gameFull payloads.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Enumerations.GameResult">
+            <summary>
+            Represents the outcome of a chess game.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Enumerations.Gamemode">
+            <summary>
+            Represents the various game modes available in Lichess.
+            This also includes all time controls for standard chess, which makes this
+            different than the <see cref="T:LichessNET.Entities.Enumerations.ChessVariant"/> enumeration.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Enumerations.SignalConnection">
+            <summary>
+            Represents the quality of a signal connection.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Enumerations.Title">
+            <summary>
+            Represents the titles awarded in chess on the Lichess platform.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Game.Game.ResultToken">
+            <summary>
+            Exact PGN result marker, including "*" for an unfinished game.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Game.Game.RawPgn">
+            <summary>
+            Exact PGN supplied to <see cref="M:LichessNET.Entities.Game.Game.FromPgn(System.String)"/>. It is never normalized,
+            trimmed, or regenerated from parsed data.
+            </summary>
+        </member>
+        <member name="M:LichessNET.Entities.Game.Game.FromPgn(System.String)">
+            <summary>
+            Creates a new Game instance by parsing PGN headers and mainline SAN.
+            Comments are retained for clock/evaluation metadata, while recursive
+            annotation variations and numeric annotation glyphs are excluded.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Game.GameExportOptions">
+            <summary>
+            Controls the optional data returned by Lichess's single-game export endpoint.
+            Defaults match the endpoint defaults.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Game.GameExportOptions.Evaluations">
+            <summary>
+            Descriptive alias for <see cref="P:LichessNET.Entities.Game.GameExportOptions.Evals"/>.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Game.GamePlayer">
+            <summary>
+            Represents a player in a chess game, including their name, title, and rating.
+            This class will be used when parsing PGN Files
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Game.GameStream">
+            <summary>
+            Represents a stream for a Lichess game, handling real-time updates of moves and game information.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Game.Move">
+            <summary>
+            A move in a chess game, read from a PGN file.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Game.MoveSequence">
+            <summary>
+            Basically the notation part of a PGN game
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Game.OngoingGame">
+            <summary>
+            Represents an ongoing game in Lichess.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Game.Opponent">
+            <summary>
+            All opponent data sent with ongoing games
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Game.Variant">
+            <summary>
+            Represents a variant of a chess game in Lichess.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Puzzle.Puzzle">
+            <summary>
+            Represents a chess puzzle obtained from Lichess, including its metadata and solution.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Puzzle.Puzzle.Id">
+            <summary>
+            Puzzle ID
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Puzzle.Puzzle.Game">
+            <summary>
+            The game in which the puzzle was extracted from
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Puzzle.Puzzle.InitialPly">
+            <summary>
+            The ply in which the puzzle starts
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Puzzle.Puzzle.Plays">
+            <summary>
+            How often that puzzle was already played
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Puzzle.Puzzle.Rating">
+            <summary>
+            The Rating of the puzzle
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Puzzle.Puzzle.Solution">
+            <summary>
+            The moves of the puzzle
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Puzzle.Puzzle.Themes">
+            <summary>
+            The topics that the puzzle covers
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Puzzle.PuzzleGame">
+            <summary>
+            This class represents a game used to extract a puzzle from.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Social.CrossTable">
+            <summary>
+            Represents a cross table that summarizes the results of games between two players.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Social.LichessProfile">
+            <summary>
+                This class contains all information of the public profile of a lichess user
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.LichessProfile.Flag">
+            <summary>
+                The current country flag of the user
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.LichessProfile.Location">
+            <summary>
+                The set location of this user
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.LichessProfile.Bio">
+            <summary>
+                The bio of the user
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.LichessProfile.RealName">
+            <summary>
+                The set real name of the user
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.LichessProfile.FideRating">
+            <summary>
+                FIDE rating of the user
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.LichessProfile.UsCfRating">
+            <summary>
+                USCF rating of the user
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.LichessProfile.EcfRating">
+            <summary>
+                ECF rating of the user
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.LichessProfile.CfcRating">
+            <summary>
+                CFC rating of the user
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.LichessProfile.DsbRating">
+            <summary>
+                DSB rating of the user
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.LichessProfile.Links">
+            <summary>
+                Links mentioned in the bio of the user
+                Each link is seperated by \r\n
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Social.LichessUser">
+            <summary>
+                The complete information of a lichess user.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Social.Matchup">
+            <summary>
+            Represents the matchup between two players, including the total number of games played and their respective scores.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.Matchup.TotalGames">
+            <summary>
+            Gets or sets the total number of games played in the matchup between two players.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Social.StreamingInfo">
+            <summary>
+            Represents streaming information related to a user, containing details of Twitch and YouTube channels.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.StreamingInfo.Twitch">
+            <summary>
+                The link to the Twitch Account of the user
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Social.StreamingInfo.YouTube">
+            <summary>
+                The link to the YouTube Account of the user
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Social.UserOverview">
+            <summary>
+            A small overview of a user sent by the API.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Social.UserRealTimeStatus">
+            <summary>
+            Represents the real-time status of a user on Lichess, including various attributes
+            such as online status, whether they are currently playing or streaming, and other details.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Social.TeamLeader">
+            <summary>
+            Represents a leader of a team on Lichess, providing properties for flair, identification, name, and patron status.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Stats.GameCounts">
+            <summary>
+                This class contains the game counts of a user in the structure fetched from the lichess API
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Stats.GamemodeStats">
+            <summary>
+                This class contains all stats of a user in a specific gamemode
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Stats.GamemodeStats.Games">
+            <summary>
+                Amount of games played in this gamemode
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Stats.GamemodeStats.Rating">
+            <summary>
+                The current rating of the user in this gamemode
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Stats.GamemodeStats.Rd">
+            <summary>
+                The current rating deviation of the user in this gamemode
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Stats.GamemodeStats.Progress">
+            <summary>
+                The current progress of the user in this gamemode over the last 12 games
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Stats.GamemodeStats.Prov">
+            <summary>
+                Is the rating considered provisional?
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Stats.Playtime.TotalSpan">
+            <summary>
+                The total time played by the user
+            </summary>
+        </member>
+        <member name="P:LichessNET.Entities.Stats.Playtime.TvSpan">
+            <summary>
+                The total time seen on TV
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Teams.LichessTeam">
+            <summary>
+            Represents a team on Lichess, containing information such as its ID, name, description, and members.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Entities.Teams.TeamMember">
+            <summary>
+            Represents a member of a Lichess team.
+            </summary>
+        </member>
+        <member name="T:LichessNET.Gameplay.IChessInitialPositionAdapter">
+            <summary>
+            Optional adapter capability for games whose gameFull event supplies a
+            non-starting FEN.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Gameplay.LichessGameSessionOptions.ReconnectDelays">
+            <summary>
+            Delays used for consecutive automatic reconnect attempts. The final
+            delay repeats for all later attempts.
+            </summary>
+        </member>
+        <member name="P:LichessNET.Gameplay.LichessQueue.Api">
+            <summary>
+            The concrete client supplied to the legacy constructor.
+            </summary>
+        </member>
+        <member name="M:LichessNET.Gameplay.LichessQueue.ValidatePlayTokenAsync(System.Threading.CancellationToken)">
+            <summary>
+            Validates the current in-memory token and returns its public metadata.
+            </summary>
+        </member>
+    </members>
+</doc>

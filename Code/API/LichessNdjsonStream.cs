@@ -18,18 +18,21 @@ public sealed class LichessNdjsonStream : ILichessBoardEventStream
     private readonly string _method;
     private readonly string _requestUri;
     private readonly string _streamId;
+    private readonly TaskCompletionSource<bool> _ready = new(
+        TaskCreationOptions.RunContinuationsAsynchronously);
     private Task _completion = Task.CompletedTask;
     private bool _started;
 
-    internal LichessNdjsonStream(string requestUri, string method, Dictionary<string, string> headers,
-        CancellationToken cancellationToken = default)
+    internal LichessNdjsonStream(string requestUri, string method,
+        Dictionary<string, string> headers,
+        CancellationToken cancellationToken = default, bool debugEnabled = true)
     {
         _requestUri = requestUri;
         _method = method ?? "GET";
         _headers = headers ?? new Dictionary<string, string>();
         _cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _streamId = CreateStreamId();
-        _logger = new LichessLog("LichessNdjsonStream_" + _streamId);
+        _logger = new LichessLog("LichessNdjsonStream_" + _streamId, debugEnabled);
     }
 
     private event Action<ILichessBoardEventStream, JsonElement>? InterfaceLineReceived;
@@ -59,6 +62,7 @@ public sealed class LichessNdjsonStream : ILichessBoardEventStream
     }
 
     public Task Completion => _completion;
+    public Task Ready => _ready.Task;
 
     public void Start()
     {
@@ -102,8 +106,13 @@ public sealed class LichessNdjsonStream : ILichessBoardEventStream
             Stream stream;
             try
             {
-                stream = await Sandbox.Http.RequestStreamAsync(_requestUri, _method, null, _headers,
-                    _cancellation.Token);
+                _logger.Request(_method, _requestUri, _headers);
+                var streamRequest = Sandbox.Http.RequestStreamAsync(
+                    _requestUri, _method, null, _headers, _cancellation.Token);
+                _ready.TrySetResult(true);
+                _logger.Information("Stream request dispatched; awaiting response data.");
+                stream = await streamRequest;
+                _logger.Information("Response stream opened.");
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -137,16 +146,19 @@ public sealed class LichessNdjsonStream : ILichessBoardEventStream
         }
         catch (OperationCanceledException) when (_cancellation.IsCancellationRequested)
         {
+            _ready.TrySetCanceled(_cancellation.Token);
         }
         catch (HttpRequestException exception)
         {
             var safeException = exception as LichessApiException
                                 ?? new LichessApiException(exception.StatusCode);
+            _ready.TrySetException(safeException);
             _logger.Error("Stream failed: " + safeException.Message);
             RaiseErrorReceived(safeException);
         }
         catch (Exception exception)
         {
+            _ready.TrySetException(exception);
             _logger.Error("Stream failed: " + exception.Message);
             RaiseErrorReceived(exception);
         }

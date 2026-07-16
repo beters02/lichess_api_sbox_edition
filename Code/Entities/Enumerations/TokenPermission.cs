@@ -18,6 +18,7 @@ public enum TokenPermission
     WriteTeams,
     ManageTeams,
     ReadPuzzleActivity,
+    WritePuzzleActivity,
     WriteRaces,
     ReadStudies,
     WriteStudies,

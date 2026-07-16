@@ -12,6 +12,7 @@ public interface ILichessBoardEventStream : IAsyncDisposable
     event Action<ILichessBoardEventStream>? Completed;
 
     Task Completion { get; }
+    Task Ready { get; }
 
     void Start();
 }

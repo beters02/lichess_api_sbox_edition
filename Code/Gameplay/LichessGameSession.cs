@@ -99,6 +99,12 @@ public sealed class LichessGameSession : IAsyncDisposable
             _lifetimeCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         }
 
+        if (!_options.UseEventStream)
+        {
+            SetConnectionState(LichessGameConnectionState.Connected);
+            return;
+        }
+
         await _connectionGate.WaitAsync(cancellationToken);
         try
         {
@@ -264,6 +270,38 @@ public sealed class LichessGameSession : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         return _client.SendBoardChatAsync(GameId, text, room, cancellationToken);
+    }
+
+    public bool ApplyPolledPosition(string fen)
+    {
+        ThrowIfDisposed();
+        if (string.IsNullOrWhiteSpace(fen))
+            return false;
+
+        if (!PrepareInitialPosition(fen))
+            return false;
+
+        LatestState = new BoardGameState
+        {
+            Type = "gameState",
+            Moves = string.Empty,
+            Status = "started"
+        };
+        SetConnectionState(LichessGameConnectionState.Connected);
+        OnStateUpdated?.Invoke(this, LatestState);
+        return true;
+    }
+
+    public void ApplyPolledGameOver(string winner = null)
+    {
+        ThrowIfDisposed();
+        ApplyServerState(new BoardGameState
+        {
+            Type = "gameState",
+            Moves = string.Empty,
+            Status = "finished",
+            Winner = winner
+        }, false);
     }
 
     private async Task<bool> ReconnectCoreAsync(CancellationToken cancellationToken)

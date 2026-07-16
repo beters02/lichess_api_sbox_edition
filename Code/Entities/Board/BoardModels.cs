@@ -22,7 +22,7 @@ public enum BoardChatRoom
 public sealed class BoardSeekOptions
 {
     public bool Rated { get; set; }
-    public double TimeMinutes { get; set; } = 5;
+    public double TimeMinutes { get; set; } = 10;
     public int IncrementSeconds { get; set; }
     public int? DaysPerTurn { get; set; }
     public BoardColorPreference Color { get; set; } = BoardColorPreference.Random;
@@ -37,6 +37,7 @@ public sealed class BoardSeekOptions
         {
             ["rated"] = Rated.ToString().ToLowerInvariant(),
             ["variant"] = Variant.ToApiName(),
+            ["ratingRange"] = RatingRange ?? string.Empty,
             ["color"] = ToApiName(Color)
         };
 
@@ -50,8 +51,6 @@ public sealed class BoardSeekOptions
             form["increment"] = IncrementSeconds.ToString(CultureInfo.InvariantCulture);
         }
 
-        if (!string.IsNullOrWhiteSpace(RatingRange))
-            form["ratingRange"] = RatingRange;
 
         return form;
     }
@@ -71,6 +70,13 @@ public sealed class BoardSeekOptions
 
         if (IncrementSeconds < 0 || IncrementSeconds > 180)
             throw new ArgumentOutOfRangeException(nameof(IncrementSeconds), "Increment must be between 0 and 180 seconds.");
+
+        var estimatedDurationSeconds = TimeMinutes * 60 + IncrementSeconds * 40;
+        if (estimatedDurationSeconds < 480)
+        {
+            throw new ArgumentOutOfRangeException(nameof(TimeMinutes),
+                "Board API public seeks require a Rapid or Classical clock.");
+        }
     }
 
     private static string ToApiName(BoardColorPreference color)
